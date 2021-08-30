@@ -1,4 +1,4 @@
-# WarpInstall
+# Warp Basics
 Instructions to install Warp
 
 
