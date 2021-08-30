@@ -17,7 +17,9 @@ This install Python 3.7.4. The latest is 3.8, but there were some issues with Py
 
 2) Install Python packages needed for Warp (and more)
 
+```
 pip install numpy scipy Forthon picmistandard matplotlib
+```
 
 Off the top of my head these are the fundamental ones but there could be more.. 
 
