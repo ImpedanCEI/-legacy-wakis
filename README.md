@@ -13,7 +13,7 @@ sh Miniconda3-py37_4.10.3-Linux-x86_64.sh
 source Miniconda3/bin/activate
 ```
 
-This install Python 3.7.4. The latest is 3.8, but there were some issues with Python 3.8 and Warp so let’s stay with 3.7.4
+This installs Python 3.7.4. The latest is 3.8, but there were some issues with Python 3.8 and Warp so let’s stay with 3.7.4
 
 2) Install Python packages needed for Warp (and more)
 
