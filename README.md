@@ -28,6 +28,7 @@ Off the top of my head these are the fundamental ones but there could be more..
 ```
 git clone https://bitbucket.org/berkeleylab/warp.git
 cd Warp/pywarp90
+make install3
 ```
 
 4) Test your installation
