@@ -10,7 +10,7 @@ You install miniconda by running the following commands
 cd
 curl https://repo.anaconda.com/miniconda/Miniconda3-py37_4.10.3-Linux-x86_64.sh
 sh Miniconda3-py37_4.10.3-Linux-x86_64.sh
-source Miniconda3/bin/activate
+source miniconda3/bin/activate
 ```
 
 This installs Python 3.7.4. The latest is 3.8, but there were some issues with Python 3.8 and Warp so let’s stay with 3.7.4
