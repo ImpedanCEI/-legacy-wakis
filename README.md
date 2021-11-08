@@ -6,7 +6,6 @@ Instructions to install Warp.
 This is a minimal python installation which is very flexible to install, manipulate and remove.
 You install miniconda by running the following commands
 
-
 ```
 cd
 wget https://repo.anaconda.com/miniconda/Miniconda3-py37_4.10.3-Linux-x86_64.sh

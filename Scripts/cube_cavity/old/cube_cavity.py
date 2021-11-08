@@ -23,15 +23,15 @@ w_cavity = 50*unit
 # height of the rectangular beam pipe (y direction)
 h_cavity = 50*unit
 # length of each side of the beam pipe (z direction)
-L_cavity = 20*unit 
+L_cavity = 30*unit 
 
 ##################################
 # Define the mesh
 ##################################
 # mesh cells per direction
-nx = 50
-ny = 50
-nz = 50
+nx = 100
+ny = 100
+nz = 100
 
 # mesh bounds
 xmin = -0.55*w_cavity
@@ -177,7 +177,7 @@ step=pw.step
 ##################################
 # Perform Simulation
 ##################################
-tot_nsteps = 1000
+tot_nsteps = 550
 t0 = time.time()
 
 images_dir = 'images/'
@@ -196,6 +196,7 @@ for n_step in range(tot_nsteps):
         plt.tight_layout()
         plt.savefig(images_dir + 'Ey_' + str(n_step) + '.png')
         plt.clf()
+        plt.ion()
 
 t1 = time.time()
 totalt = t1-t0

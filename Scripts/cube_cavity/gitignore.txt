@@ -1,0 +1,9 @@
+#files to ignore
+*.png
+*.csv
+*.cgmlog
+
+#folders to ignore
+/images
+/csv
+/old
