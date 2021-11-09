@@ -4,6 +4,6 @@
 *.cgmlog
 
 #folders to ignore
-*/images
-*/csv
-*/old
+**/images
+**/csv
+**/old
