@@ -9,7 +9,7 @@ import os
 import scipy as sc  
 from copy import copy
 
-
+#to be able to use pyPIC the BIN path is needed
 BIN = os.path.expanduser("/home/edelafue/PyCOMPLETE")
 if BIN not in sys.path:
     sys.path.append(BIN)
@@ -40,12 +40,12 @@ L_cavity = 30*unit
 ##################################
 # Define the mesh
 ##################################
-# mesh cells per direction
-nx = 71
-ny = 71
-nz = 96
+# mesh cells per direction 
+nx = 55                     
+ny = 55
+nz = 100            #values for dh=0.001
 
-# mesh bounds
+# mesh bounds for domain
 xmin = -0.55*w_cavity
 xmax = 0.55*w_cavity
 ymin = -0.55*h_cavity
@@ -73,12 +73,7 @@ cavity = picmi.warp.Box(w_cavity, h_cavity, L_cavity)
 
 conductors = domain - pipe - cavity
 
-#####
-
-#####
-w_rect = 15*unit/2
-h_rect = 15*unit/2
-
+# class to define the object chamber as an implicit function for the poisson solver [not working]
 class chamb_warp:
     def __init__(self, conductors, zn, x_max, y_max, x_min, y_min):
         self.conductors = conductors
@@ -94,21 +89,6 @@ class chamb_warp:
 
         return res == np.ones_like(res)
 
-
-
-
-PyPIC_chamber = poly.polyg_cham_geom_object({'Vx' : np.array([w_rect, -w_rect, -w_rect, w_rect]),
-                                             'Vy': np.array([h_rect, h_rect, -h_rect, -h_rect]),
-                                             'x_sem_ellip_insc' : 0.99*w_rect,
-                                             'y_sem_ellip_insc' : 0.99*h_rect})
-
-#zn = 0
-#PyPIC_chamber = chamb_warp(conductors, zn, xmax, ymax, xmin, ymin) 
-
-picFD = PIC_FD.FiniteDifferences_Staircase_SquareGrid(chamb = PyPIC_chamber, Dh = dh, sparse_solver = 'PyKLU')
-rho = np.ones_like(picFD.rho)
-picFD.solve(rho = rho)
-phi = picFD.phi.copy()
 
 ##################################
 # Setupe the grid
@@ -217,7 +197,7 @@ def nonlinearsource():
     vz = picmi.warp.clight*np.sqrt(1-1./(beam_gamma**2))
     beam.wspecies.addparticles(x=x,y=y,z=z,vx=vx,vy=vy,vz=vz,gi = 1./beam_gamma, w=bunch_w)
 
-#set up the injection
+# set up the injection
 picmi.warp.installuserinjection(nonlinearsource)
 
 # define shortcuts
@@ -279,16 +259,16 @@ rect4 = plt.Rectangle((xmax, ymin),
 #define the integration path x2, y2
 xtest=0.0   #Assumes x2,y2 of the test particle in 0,0
 ytest=0.0
-#---search for the index
+#---set up the vectors
 x=np.linspace(xmin, xmax, nx)
 y=np.linspace(ymin, ymax, ny)
-tol=np.max(x)*1e-4                      #set tolerance
-xindex=np.where(np.abs(x-xtest) < tol)  #indexes are in index[0]
-yindex=np.where(np.abs(y-ytest) < tol) 
-#---select the index
-nxtest=xindex[0]
-nytest=yindex[0]
-#obtain the timestep particles are inserted
+dx=x[2]-x[1]
+dy=y[2]-y[1]
+#---search for the index
+ixtest=int((xtest-x[0])/dx)
+iytest=int((ytest-y[0])/dy)
+
+#obtain the timestep particles are inserted [TODO]
 n_insert=[]
 
 #-------------#                             
@@ -297,6 +277,7 @@ n_insert=[]
 
 for n_step in range(tot_nsteps):
     picmi.warp.step()
+
     #Extracting the electric field from all processors
     #---z direction
     Ez=em.gatherez()    #3D matrix
@@ -315,7 +296,7 @@ for n_step in range(tot_nsteps):
     #time vector
     t.append(picmi.warp.top.time)
 
-    #append the 1D electric field at (0,0,z)
+    #append the 1D electric field at (nxtest,nytest,z)
     #--- z direction
     Ez_t.append(Ez[nxtest,nytest,:]) #1D vector of len=tot_nsteps*nz 
     #--- x direction
@@ -327,12 +308,13 @@ for n_step in range(tot_nsteps):
     Bx_t.append(Bx[nxtest,nytest,:]) #1D vector of len=tot_nsteps*nx 
     #--- y direction
     By_t.append(By[nxtest,nytest,:]) #1D vector of len=tot_nsteps*ny
-    #append the charge density at (0,0,z)
+    #append the charge density at (nxtest,nytest,z)
     rho_t.append(rho[nxtest, nytest, :]) #1D vector of len=tot_nsteps*ny
 
     #store the E field at particle position for each timestep
     #TO BE DONE. beam.wspecies.getex() only returns data while there is beam inside the cavity so it is not always 10**5 long
 
+'''
     #Plot data
     if n_step % 10 == 0:
         #Ez - x cut plot
@@ -380,15 +362,171 @@ for n_step in range(tot_nsteps):
         plt.jet()
         plt.savefig(images_dirx + 'Ex_' + str(n_step) + '.png')
         plt.clf()
+'''
 
 #Calculate simulation time
 t1 = time.time()
 totalt = t1-t0
 print('Run terminated in %ds' %totalt)
 
+#reshape electric field
+Ez=[]
+Ez=np.reshape(Ez_t, (nz+1,tot_nsteps))      #array to matrix (z,t)
+
 #--------------------#                             
 #  end of time loop  #
 #--------------------#
+
+########################################
+# Set up the poisson solver from PyPIC
+########################################
+
+#--- set up z, t, dt, dz
+z=np.linspace(zmin, zmax, nz)
+t=np.array(t)
+dz=z[2]-z[1]
+dt=t[2]-t[1]
+
+#--- set Wake_potential, s
+s=np.linspace(0, Wake_length, tot_nsteps) #tot_nsteps or less? TODO: define correctly s
+Wake_potential=np.zeros_like(s)
+
+#--- interpolate Ez so nz == tot_nsteps
+z_interp=np.linspace(zmin, zmax, tot_nsteps)
+Ez_interp=np.zeros((tot_nsteps,tot_nsteps))
+dz_interp=z_interp[2]-z_interp[1]
+for n in range(tot_nsteps):
+    Ez_interp[:, n]=np.interp(z_interp, z, Ez[:, n])
+
+
+#--- initialize variables
+Ez_dt=np.zeros(tot_nsteps)  #time derivative of Ez
+Ez_dz=np.zeros(tot_nsteps)  #z spatial derivative of Ez
+phi = np.zeros(tot_nsteps)  #laplacian solution phi(xtest, ytest)
+Int = np.zeros(tot_nsteps)  #integral of ez between -l1, l2
+
+#--- obtain the derivatives
+for n in range(tot_nsteps-1):
+    Ez_dt[k]= (Ez_interp[n+1, :] - Ez_interp[n, :])/dt
+    Ez_dz[k]= (Ez_interp[:, n+1] - Ez_interp[:, n])/dz
+
+#--- define the limits for the poisson and the integral
+l1=(w_cavity/2.0)         #[m]
+l2=(w_cavity/2.0)         #[m] 
+b1=h_pipe/2.0             #[m]
+b2=h_pipe/2.0             #[m]
+
+# find indexes for l1, l2, b1, b2
+iz_l1=int((-l1-z_interp[0])/dz_interp)
+iz_l2=int((l2-z_interp[0])/dz_interp)
+#iy_b1=int((b1-y[0])/dy)     #this index is not suitable for phi
+#iy_b2=int((b2-y[0])/dy)
+
+
+# s loop -------------------------------------#                                                           
+
+for n in range(tot_nsteps):    
+
+    #-----------------------#
+    # first poisson z=(-l1) #
+    #-----------------------#
+
+    # find t index for -l1 and s[n]
+    it_l1=int(((-l1+s[n])/c-t[0])/dt)
+
+    #--- obtain the rectangle size for -l1 
+    # define the rectangle size (aperture = half the area)
+    w_rect = w_pipe/2.0
+    h_rect = h_pipe/2.0
+
+
+    # PyPIC function to declare the implicit function for the conductors (this acts as BCs)
+    PyPIC_chamber = poly.polyg_cham_geom_object({'Vx' : np.array([w_rect, -w_rect, -w_rect, w_rect]),
+                                                 'Vy': np.array([h_rect, h_rect, -h_rect, -h_rect]),
+                                                 'x_sem_ellip_insc' : 0.99*w_rect, #important to add this
+                                                 'y_sem_ellip_insc' : 0.99*h_rect})
+    # solver object
+    picFD = PIC_FD.FiniteDifferences_Staircase_SquareGrid(chamb = PyPIC_chamber, Dh = dh, sparse_solver = 'PyKLU')
+
+    # define the left side of the laplacian (driving term rho = 1/c*dEz/dt-dEz/dz)
+    # rho = np.ones_like(picFD.rho)                                         #test rho to check the solver. Rho needs to be two dimensions?
+    rho = Ez_dt[iz_l1]-Ez_dt[it_l1]/picmi.constants.c*np.ones_like(picFD.rho)       #this rho is a constant evaluated at z=-l1, t=(s-l1)/c
+
+    # solve the laplacian and obtain phi(0,0)
+    picFD.solve(rho = rho)      #the dimensions are selected by pyPIC solver
+    phi[n] = picFD.phi.copy()
+
+    #-----------------------#
+    # second poisson z=(l2) #
+    #-----------------------#
+
+    # find t index for l2 and s[n]
+    it_l2=int(((l2+s[n])/c-t[0])/dt)
+
+    #--- obtain the rectangle size for l2 
+    # define the rectangle size (aperture = half the area)
+    w_rect = w_pipe/2.0
+    h_rect = h_pipe/2.0
+
+    # PyPIC function to declare the implicit function for the conductors (this acts as BCs)
+    PyPIC_chamber = poly.polyg_cham_geom_object({'Vx' : np.array([w_rect, -w_rect, -w_rect, w_rect]),
+                                                 'Vy': np.array([h_rect, h_rect, -h_rect, -h_rect]),
+                                                 'x_sem_ellip_insc' : 0.99*w_rect, #important to add this
+                                                 'y_sem_ellip_insc' : 0.99*h_rect})
+    # solver object
+    picFD = PIC_FD.FiniteDifferences_Staircase_SquareGrid(chamb = PyPIC_chamber, Dh = dh, sparse_solver = 'PyKLU')
+
+    # define the left side of the laplacian (driving term rho = 1/c*dEz/dt-dEz/dz)
+    # rho = np.ones_like(picFD.rho)                         #test rho to check the solver. Rho needs to be two dimensions?
+    rho = Ez_dt[iz_l2]-Ez_dt[it_l2]/picmi.constants.c*np.ones_like(picFD.rho)       #this rho is a constant size[nx,ny] evaluated at z=l2, t=(s+l2)/c
+
+    # solve the laplacian and obtain phi(xtest,ytest)
+    picFD.solve(rho = rho)      #rho has to be a matrix
+    phi[n] = picFD.phi.copy()   #phi[n] size [pyPIC_nx,pyPIC_ny]
+
+
+    #-----------------------------#
+    # integral between -l1 and l2 #
+    #-----------------------------#
+
+    #int(Ez(xtest, ytest, z, t=(s+z)/c))
+    for k in range(iz_l1, iz_l1):
+        it=int(((z[k]+s[n])/c-t[0])/dt)                 #find index for t
+        integral=integral+(Ez_interp[k, it])*dz         #compute integral
+
+    #-----------------------#
+    #      Obtain W(s)      #
+    #-----------------------#
+
+    # Define phi(x, y=b1) 
+    # Phis indexes go from x(-w_rect,w_rect) and y(-h_rect,h_rect)
+    # x direction is gridded with (w_rect*2)/dh + 10 ghost cells
+    # y direction is gridded with (h_rect*2)/dh + 8 ghost cells
+    # +info see: class PyPIC_Scatter_Gather(object):
+    iy_b1=int((b1-picFD.bias_y)/dh)     
+    iy_b2=int((b2-picFD.bias_y)/dh)
+    ixtest_phi=int((xtest-picFD.bias_y)/dh)
+    ixtest_phi=int((ytest-picFD.bias_y)/dh)
+
+    phi_b1=phi(ixtest_phi, iy_b1, n) #phi(x=0, y=b1, s[n])
+    phi_b2=phi(ixtest_phi, iy_b1, n) #phi(x=0, y=b1, s[n])
+
+    Wake_potential[n]=(phi_b1-phi[ixtest_phi, iytest_phi])-integral-(phi[ixtest_phi, iytest_phi]-phi_b2)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ############################        
 #Calculate wake function w #
@@ -405,10 +543,6 @@ s=np.array(np.linspace(-0.16, WL, tot_nsteps))   #distance source-test particles
 t_wf=(s+z)*unit/picmi.constants.c   #time for wake function [s]
 tol=t[0]*1e-4                       #set tolerance
 index=np.array(np.where(t-t_wf[0] > tol))   #time indexes are in index[0]
-
-#reshape electric field
-Ez=[]
-Ez=np.reshape(Ez_t, (nz+1,tot_nsteps))      #array to matrix (z,t)
 
 #Perform integral
 q=1 #charge in eV
