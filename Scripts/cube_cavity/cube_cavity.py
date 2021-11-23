@@ -4,9 +4,19 @@ from warp import picmi
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatch
 import time
+import sys
 import os
-import scipy.constants as sy 
+import scipy as sc  
 from copy import copy
+import pickle as pk
+
+#to be able to use pyPIC the BIN path is needed
+BIN = os.path.expanduser("/home/edelafue/PyCOMPLETE")
+if BIN not in sys.path:
+    sys.path.append(BIN)
+
+import PyPIC.geom_impact_poly as poly 
+import PyPIC.FiniteDifferences_Staircase_SquareGrid as PIC_FD
 
 unit = 1e-3
 
@@ -31,18 +41,21 @@ L_cavity = 30*unit
 ##################################
 # Define the mesh
 ##################################
-# mesh cells per direction
-nx = 71
-ny = 71
-nz = 96
+# mesh cells per direction 
+nx = 55                     
+ny = 55
+nz = 100            #values for dh=0.001
 
-# mesh bounds
+# mesh bounds for domain
 xmin = -0.55*w_cavity
 xmax = 0.55*w_cavity
 ymin = -0.55*h_cavity
 ymax = 0.55*h_cavity
 zmin = -L_pipe
 zmax = L_pipe
+
+# mesh width in x & y
+dh = 1e-3 #(xmax-xmin)/nx
 
 ##################################
 # Beam Setup
@@ -122,7 +135,7 @@ sim.add_species(beam, layout=beam_layout,
 
 # beam sigma in time and longitudinal direction
 sigmat= 1.000000e-09/16.     #changed from /4 to /16
-sigmaz = sigmat*sy.c         #[m]
+sigmaz = sigmat*picmi.constants.c         #[m]
 # transverse sigmas.
 sigmax = 2e-4
 sigmay = 2e-4
@@ -168,7 +181,7 @@ def nonlinearsource():
     vz = picmi.warp.clight*np.sqrt(1-1./(beam_gamma**2))
     beam.wspecies.addparticles(x=x,y=y,z=z,vx=vx,vy=vy,vz=vz,gi = 1./beam_gamma, w=bunch_w)
 
-#set up the injection
+# set up the injection
 picmi.warp.installuserinjection(nonlinearsource)
 
 # define shortcuts
@@ -181,7 +194,7 @@ step=pw.step
 ##################################
 # Perform Simulation
 ##################################
-tot_nsteps = 1000
+tot_nsteps = 100
 t0 = time.time()
 
 #pre-allocate timedep variables
@@ -191,55 +204,45 @@ Ey_t=[]
 Bx_t=[]
 By_t=[]
 rho_t=[]
-#w_fun=[]
 t=[]
+dt=[]
 
 
-#create output directories
-out_folder='images/'
-if not os.path.exists(out_folder):
-    os.mkdir(out_folder)
-images_diry = out_folder+'Ey/'
+#create output directories for images
+images_folder='images/'
+if not os.path.exists(images_folder):
+    os.mkdir(images_folder)
+images_diry = images_folder+'Ey/'
 if not os.path.exists(images_diry):
     os.mkdir(images_diry)
-images_dirx = out_folder+'Ex/'
+images_dirx = images_folder+'Ex/'
 if not os.path.exists(images_dirx):
     os.mkdir(images_dirx)
-images_dirz = out_folder+'Ez/'
+images_dirz = images_folder+'Ez/'
 if not os.path.exists(images_dirz):
     os.mkdir(images_dirz)
 
-#creating patches for the conductors
-rect1 = plt.Rectangle((xmin, ymin), #left lower corner of the rectangle
-                     (L_pipe-L_cavity)/2.0, (w_cavity-w_pipe)/2.0, #length, width 
-                     color='w',
-                     alpha=1.0 )  
-rect2 = plt.Rectangle((xmin, ymax), 
-                     (L_pipe-L_cavity)/2.0, -(w_cavity-w_pipe)/2.0, #length, width 
-                     color='w',
-                     alpha=1.0 )  
-rect3 = plt.Rectangle((xmax, ymax), 
-                     -(L_pipe-L_cavity)/2.0, -(w_cavity-w_pipe)/2.0, #length, width 
-                     color='w',
-                     alpha=1.0 )  
-rect4 = plt.Rectangle((xmax, ymin), 
-                     -(L_pipe-L_cavity)/2.0, (w_cavity-w_pipe)/2.0, #length, width 
-                     color='w',
-                     alpha=1.0 )         
+#create output directories for txt
+out_folder='out/'
+if not os.path.exists(out_folder):
+    os.mkdir(out_folder)
+        
 
 #define the integration path x2, y2
 xtest=0.0   #Assumes x2,y2 of the test particle in 0,0
 ytest=0.0
+#---set up the vectors
+x=np.linspace(xmin, xmax, nx+1)
+y=np.linspace(ymin, ymax, ny+1)
+z=np.linspace(zmin, zmax, nz+1)
+dx=x[2]-x[1]
+dy=y[2]-y[1]
+dz=z[2]-z[1]
 #---search for the index
-x=np.linspace(xmin, xmax, nx)
-y=np.linspace(ymin, ymax, ny)
-tol=np.max(x)*1e-4                      #set tolerance
-xindex=np.where(np.abs(x-xtest) < tol)  #indexes are in index[0]
-yindex=np.where(np.abs(y-ytest) < tol) 
-#---select the index
-nxtest=xindex[0]
-nytest=yindex[0]
-#obtain the timestep particles are inserted
+ixtest=int((xtest-x[0])/dx)
+iytest=int((ytest-y[0])/dy)
+
+#obtain the timestep particles are inserted [TODO]
 n_insert=[]
 
 #-------------#                             
@@ -248,6 +251,7 @@ n_insert=[]
 
 for n_step in range(tot_nsteps):
     picmi.warp.step()
+
     #Extracting the electric field from all processors
     #---z direction
     Ez=em.gatherez()    #3D matrix
@@ -263,46 +267,41 @@ for n_step in range(tot_nsteps):
     wEy=beam.wspecies.getey()   #vector with N components (for each particle) - in particles.py 1054 "Returns the Ex field applied to the particles"
     #get charge density
     rho=beam.wspecies.get_density()    #gathers the rho (electric density) of the beam rho[nx,ny,nz]
-    #time vector
-    t.append(picmi.warp.top.time)
 
-    #append the 1D electric field at (0,0,z)
+    #time vector
+    t.append(picmi.warp.top.time) #t[0]=3.851666403092941e-12, t[300]=5.79675793665486e-10
+    dt.append(picmi.warp.top.dt) #1.925833201546471e-12
+
+    #append the 1D electric field at (ixtest,iytest,z)
     #--- z direction
-    Ez_t.append(Ez[nxtest,nytest,:]) #1D vector of len=tot_nsteps*nz 
+    Ez_t.append(Ez[ixtest,iytest,:]) #1D vector of len=tot_nsteps*nz 
     #--- x direction
-    Ex_t.append(Ex[nxtest,nytest,:]) #1D vector of len=tot_nsteps*nx 
+    Ex_t.append(Ex[ixtest,iytest,:]) #1D vector of len=tot_nsteps*nz 
     #--- y direction
-    Ey_t.append(Ey[nxtest,nytest,:]) #1D vector of len=tot_nsteps*ny 
+    Ey_t.append(Ey[ixtest,iytest,:]) #1D vector of len=tot_nsteps*nz 
     #append the 1D magnetic induction
     #--- x direction
-    Bx_t.append(Bx[nxtest,nytest,:]) #1D vector of len=tot_nsteps*nx 
+    Bx_t.append(Bx[ixtest,iytest,:]) #1D vector of len=tot_nsteps*nz 
     #--- y direction
-    By_t.append(By[nxtest,nytest,:]) #1D vector of len=tot_nsteps*ny
-    #append the charge density at (0,0,z)
-    rho_t.append(rho[nxtest, nytest, :]) #1D vector of len=tot_nsteps*ny
+    By_t.append(By[ixtest,iytest,:]) #1D vector of len=tot_nsteps*nz
+    #append the charge density at (ixtest,iytest,z)
+    rho_t.append(rho[ixtest, iytest, :]) #1D vector of len=tot_nsteps*nz
 
     #store the E field at particle position for each timestep
     #TO BE DONE. beam.wspecies.getex() only returns data while there is beam inside the cavity so it is not always 10**5 long
 
+'''
     #Plot data
     if n_step % 10 == 0:
         #Ez - x cut plot
         fig= plt.figure(1)
         ax=fig.gca()
-        im=ax.imshow(em.gatherez()[int(ny/2),:,:], vmin=-2e6, vmax=2e6, extent=[zmin, zmax, ymin, ymax], cmap='jet')
+        im=ax.imshow(em.gatherez()[int(ny/2),:,:], vmin=-3e6, vmax=3e6, extent=[zmin, zmax, ymin, ymax], cmap='jet')
         ax.set(title='t = ' + str(picmi.warp.top.time) + ' s',
                xlabel='z    [mm]',
                ylabel='y    [mm]',
                xlim=[xmin,xmax],
                ylim=[ymin,ymax])
-        new_rect1=copy(rect1) #we need to create a new patch for each plot
-        ax.add_patch(new_rect1)
-        new_rect2=copy(rect2) 
-        ax.add_patch(new_rect2)
-        new_rect3=copy(rect3) 
-        ax.add_patch(new_rect3)
-        new_rect4=copy(rect4) 
-        ax.add_patch(new_rect4)
         plt.colorbar(im, label = 'Ez    [V/m]')
         plt.tight_layout()
         plt.savefig(images_dirz + 'Ez_' + str(n_step) + '.png')
@@ -331,116 +330,52 @@ for n_step in range(tot_nsteps):
         plt.jet()
         plt.savefig(images_dirx + 'Ex_' + str(n_step) + '.png')
         plt.clf()
+'''
 
 #Calculate simulation time
 t1 = time.time()
 totalt = t1-t0
 print('Run terminated in %ds' %totalt)
 
-#--------------------#                             
-#  end of time loop  #
-#--------------------#
-
-############################        
-#Calculate wake function w #
-############################
-
-#set up
-dz=(zmax-zmin)/nz*np.ones(nz)/unit         #[mm]
-z=np.linspace(zmin, zmax, tot_nsteps)/unit #[mm]
-WL=t[-1]*picmi.constants.c/unit-zmax      #max wake length [mm]
-print('Max Wakelength is '+str(WL)+' m')
-s=np.array(np.linspace(-0.16, WL, tot_nsteps))   #distance source-test particles [mm]
-
-#search init time
-t_wf=(s+z)*unit/picmi.constants.c   #time for wake function [s]
-tol=t[0]*1e-4                       #set tolerance
-index=np.array(np.where(t-t_wf[0] > tol))   #time indexes are in index[0]
-
 #reshape electric field
 Ez=[]
 Ez=np.reshape(Ez_t, (nz+1,tot_nsteps))      #array to matrix (z,t)
 
-#Perform integral
-q=1 #charge in eV
-wfun=[] 
-for i in index[0]:  
-    wfun.append((1/q)*np.sum(Ez[0:nz,i]*dz))
-    #print(wfun)
-wfun=np.array(wfun)
+#--------------------#                              
+#  end of time loop  #
+#--------------------#
 
-#plot and save result
-plt.ion()
-fig2 = plt.figure(2, figsize=(6,4), dpi=200, tight_layout=True)
-ax2=fig2.gca()
-ax2.plot(s/sigmaz, wfun, lw=1.5, color='g')
-ax2.set(title='Longitudinal wake function',
-        xlabel='s [mm]',
-        ylabel='$w_{//}$')
-fig2.savefig(out_folder + 'w_function' + '.png')
+##################################
+#           Save data
+##################################
 
-#dump into csv
-np.savetxt("wfun.csv", wfun*unit, delimiter=",")
+#--- create dictionary with the output data
+data = { 'Ez' : Ez_t, #len(tot_nsteps*nz)
+         'Ex' : Ex_t,
+         'Ey' : Ey_t,
+         'Bx' : Bx_t,
+         'By' : By_t,
+         'rho' : rho_t,
+         't' : t, 
+         'x' : x,
+         'y' : y,
+         'z' : z,
+         'w_cavity' : w_cavity,
+         'h_cavity' : h_cavity,
+         'w_pipe' : w_pipe,
+         'h_pipe' : h_pipe,
+         'nt' : tot_nsteps,
+         'nz' : nz,
+         'sigmaz' : sigmaz,
+         'xtest' : xtest,
+         'ytest' : ytest
+        }
+# write the dictionary to a txt using pickle module
+with open(out_folder + 'out.txt', 'wb') as handle:
+  pk.dump(data, handle)
 
-
-
-#############################        
-#Calculate wake potential W #
-#############################
-
-ds=s[1]-s[0] #[mm]
-wpot=[]
-sigmaz=sigmaz/unit
-#get bunch charge density
-rho_bunch=np.exp((-z**2)/(2*sigmaz))/(np.sqrt(2*np.pi)*sigmaz)
-
-for j in range(len(wfun)):  
-    wpot.append((N/q)*np.sum(wfun[j]*rho_bunch[j]*dz))
-    #print(wpot)
-wpot=np.array(wpot)
-
-fig = plt.figure()
-plt.plot(s, wpot*unit, lw=2)
-plt.xlabel('s   [mm]')
-plt.ylabel('$W_{//}$')
-plt.title('Longitudinal wake potential')
-plt.tight_layout()
-plt.savefig('images/' + 'w_potential' + '.png')
-
-#plot and save result
-fig3 = plt.figure(3, figsize=(6,4), dpi=200, tight_layout=True)
-ax3=fig3.gca()
-ax3.plot(s/sigmaz, wpot*unit, lw=1.5, color='r', label="analytic")
-ax3.set(title='Longitudinal wake potential',
-        xlabel='s[mm]',
-        ylabel='$Wp_{//}$')
-ax3.legend(loc='best')
-fig3.savefig(out_folder + 'w_potential' + '.png')
-
-#dump into csv
-np.savetxt("wpot.csv", wpot, delimiter=",")
-
-#######################        
-# Calculate impedance #
-#######################
-
-#Using np.fff from numpy
-freq_np=np.fft.fftfreq(len(s))
-Zl_np=np.fft.fft(wfun)
-
-#plot results and save
-fig4 = plt.figure(4, figsize=(6,4), dpi=200, tight_layout=True)
-plt.plot(freq_np, Zl_np.real, '-', color='red', lw=1.5, label='numpy.fft')
-plt.xlabel('freq [GHz]')
-plt.ylabel('$Z_{//}$')
-plt.title('Longitudinal impedance')
-plt.tight_layout()
-plt.xlim((0.0, max(freq_np)))
-plt.ylim((0.0, max(Zl_np)+0.2*max(Zl_np.real)))
-plt.savefig('images/' + 'impedance' + '.png')
-
-#dump into csv
-np.savetxt("zl_np.csv", Zl_np, delimiter=",")
-
-
-
+#--- to read the dictionary type
+# with open(out_folder + 'out.txt', 'rb') as handle:
+#   data = pk.loads(handle.read())
+#   print(data.keys())
+#   x=data.get('x')
