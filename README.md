@@ -1,5 +1,8 @@
 # Warp Basics
-Instructions to install Warp. 
+
+In this repository aims to develop a Wakefield solver for impedance calculations, using outpu fields of Warp simulations. The results will be benchmarked with CST simulations.
+
+## Instructions to install Warp. 
 
 
 1) Install miniconda
