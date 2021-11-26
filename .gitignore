@@ -2,8 +2,10 @@
 *.png
 *.csv
 *.cgmlog
+*.out
 
 #folders to ignore
 **/images
 **/csv
 **/old
+**/out*
