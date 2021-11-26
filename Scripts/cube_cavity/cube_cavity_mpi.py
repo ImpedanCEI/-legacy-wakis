@@ -35,7 +35,7 @@ L_cavity = 30*unit
 # mesh cells per direction
 nx = 55
 ny = 55
-nz = 200
+nz = 100
 
 # mesh bounds
 xmin = -0.55*w_cavity
@@ -115,7 +115,7 @@ sim.step(1)
 ##################################
 # Setup the beam injection
 ##################################
-N=10**6
+N=10**5
 beam_layout = picmi.PseudoRandomLayout(n_macroparticles = N, seed = 3)
 
 sim.add_species(beam, layout=beam_layout,
@@ -125,13 +125,13 @@ sim.add_species(beam, layout=beam_layout,
 sigmat= 1.000000e-09/16.     #changed from /4 to /16
 sigmaz = sigmat*picmi.constants.c 
 # transverse sigmas.
-sigmax = 2e-4
-sigmay = 2e-4
+sigmax = 2e-3 #changed from e-4 to e-3 
+sigmay = 2e-3
 
 # spacing between bunches
 b_spac = 25e-9
 # offset of the bunch centroid
-t_offs = 2.39e-8 + 5.85e-10
+t_offs = 5.332370636221942e-10   #like CST (-160 mm)
 # number of bunches to simulate
 n_bunches = 1
 
@@ -140,9 +140,10 @@ beam_gamma = 479.
 beam_uz = beam_gamma*picmi.constants.c
 
 # macroparticle info
-bunch_physical_particles  = 2.5e11
-bunch_w = 1e8
-bunch_macro_particles = bunch_physical_particles/bunch_w
+bunch_charge = 1e-9
+bunch_physical_particles  = int(bunch_charge/sc.constants.e)
+bunch_macro_particles = N
+bunch_w = bunch_physical_particles/bunch_macro_particles
 
 
 bunch_rms_size            = [sigmax, sigmay, sigmaz]
@@ -154,7 +155,7 @@ bunch_centroid_velocity   = [0.,0.,beam_uz]
 def time_prof(t):
     val = 0
     sigmat = sigmaz/picmi.clight
-    for i in range(1,n_bunches+1):
+    for i in range(0,n_bunches):
         val += bunch_macro_particles*1./np.sqrt(2*np.pi*sigmat*sigmat)*np.exp(-(t-i*b_spac+t_offs)*(t-i*b_spac+t_offs)/(2*sigmat*sigmat))*picmi.warp.top.dt
     return val
 
@@ -327,21 +328,28 @@ for n_step in range(tot_nsteps):
 ##################################
 
 #--- create dictionary with the output data
+#--- create dictionary with the output data
 data = { 'Ez' : Ez_t, #len(tot_nsteps*nz)
          'Ex' : Ex_t,
          'Ey' : Ey_t,
+         'Bx' : Bx_t,
          'By' : By_t,
-         'Bx' : By_t,
          'rho' : rho_t,
          't' : t, 
          'x' : x,
          'y' : y,
          'z' : z,
+         'w_cavity' : w_cavity,
+         'h_cavity' : h_cavity,
+         'w_pipe' : w_pipe,
+         'h_pipe' : h_pipe,
          'nt' : tot_nsteps,
          'nz' : nz,
+         'sigmaz' : sigmaz,
          'xtest' : xtest,
          'ytest' : ytest
         }
+
 # write the dictionary to a txt using pickle module
 with open(out_folder+'out.txt', 'wb') as handle:
   pk.dump(data, handle)

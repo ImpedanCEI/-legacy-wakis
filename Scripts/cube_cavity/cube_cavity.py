@@ -62,7 +62,7 @@ dh = 1e-3 #(xmax-xmin)/nx
 ##################################
 # generate the beam
 beam = picmi.Species(particle_type = 'proton',
-                     particle_shape = 'linear',
+                     particle_shape = 'cubic', #changed from linear
                      name = 'beam')
 
 ##################################
@@ -135,15 +135,15 @@ sim.add_species(beam, layout=beam_layout,
 
 # beam sigma in time and longitudinal direction
 sigmat= 1.000000e-09/16.     #changed from /4 to /16
-sigmaz = sigmat*picmi.constants.c         #[m]
+sigmaz = sigmat*picmi.constants.c 
 # transverse sigmas.
-sigmax = 2e-4
-sigmay = 2e-4
+sigmax = 2e-3 #changed from e-4 to e-3 
+sigmay = 2e-3
 
 # spacing between bunches
 b_spac = 25e-9
 # offset of the bunch centroid
-t_offs = 2.39e-8 + 5.85e-10
+t_offs = -5*sigmat # 5.332370636221942e-10   #like CST (-160 mm)
 # number of bunches to simulate
 n_bunches = 1
 
@@ -152,21 +152,22 @@ beam_gamma = 479.
 beam_uz = beam_gamma*picmi.constants.c
 
 # macroparticle info
-bunch_physical_particles  = 2.5e11
-bunch_w = 1e8
-bunch_macro_particles = bunch_physical_particles/bunch_w
+bunch_charge = 1e-9
+bunch_physical_particles  = int(bunch_charge/sc.constants.e)
+bunch_macro_particles = N
+bunch_w = bunch_physical_particles/bunch_macro_particles
 
 
 bunch_rms_size            = [sigmax, sigmay, sigmaz]
 bunch_rms_velocity        = [0.,0.,0.]
-bunch_centroid_position   = [0,0,0.95*zmin] #0.95*zmin before
+bunch_centroid_position   = [0,0,0.95*zmin]
 bunch_centroid_velocity   = [0.,0.,beam_uz]
 
 # time profile of a gaussian beam
 def time_prof(t):
     val = 0
     sigmat = sigmaz/picmi.clight
-    for i in range(1,n_bunches+1):
+    for i in range(0,n_bunches):
         val += bunch_macro_particles*1./np.sqrt(2*np.pi*sigmat*sigmat)*np.exp(-(t-i*b_spac+t_offs)*(t-i*b_spac+t_offs)/(2*sigmat*sigmat))*picmi.warp.top.dt
     return val
 
@@ -181,7 +182,7 @@ def nonlinearsource():
     vz = picmi.warp.clight*np.sqrt(1-1./(beam_gamma**2))
     beam.wspecies.addparticles(x=x,y=y,z=z,vx=vx,vy=vy,vz=vz,gi = 1./beam_gamma, w=bunch_w)
 
-# set up the injection
+#set up the injection
 picmi.warp.installuserinjection(nonlinearsource)
 
 # define shortcuts
@@ -357,6 +358,7 @@ data = { 'Ez' : Ez_t, #len(tot_nsteps*nz)
          'By' : By_t,
          'rho' : rho_t,
          't' : t, 
+         'init_time' : init_time,
          'x' : x,
          'y' : y,
          'z' : z,

@@ -18,7 +18,7 @@ from copy import copy
 import pickle as pk
 
 #--- read the dictionary
-with open('out_nt10000/out.txt', 'rb') as handle:
+with open('out/out.txt', 'rb') as handle:
   data = pk.loads(handle.read())
   print('stored variables')
   print(data.keys())
@@ -74,6 +74,7 @@ Ez_fft=np.fft.fft(Ez[int(nz/2), 0:-1:5])
 Amp=np.abs(Ez_fft)
 Amp_max=np.argmax(Amp[:int(len(freq)/2-1)])
 
+print("FFT parameters: Freq resolution = "+str())
 fig2 = plt.figure(2, figsize=(6,4), dpi=200, tight_layout=True)
 ax2=fig2.gca()
 ax2.plot(freq[Amp_max], Amp[Amp_max], marker='o', markersize=4.0, color='cyan')
