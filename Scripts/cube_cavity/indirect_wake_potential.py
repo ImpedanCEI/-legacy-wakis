@@ -28,10 +28,11 @@ if BIN not in sys.path:
 import PyPIC.geom_impact_poly as poly 
 import PyPIC.FiniteDifferences_Staircase_SquareGrid as PIC_FD
 
+unit = 1e-3 #mm to m
 c=sc.constants.c
 
 #--- read the dictionary from cube_cavity.py Warp simulation
-with open('out_nt2000/out.txt', 'rb') as handle:
+with open('out_fixedfield/out.txt', 'rb') as handle:
   data = pk.loads(handle.read())
   print('stored variables')
   print(data.keys())
@@ -51,17 +52,35 @@ w_cavity=data.get('w_cavity')
 h_cavity=data.get('h_cavity')
 w_pipe=data.get('w_pipe')
 h_pipe=data.get('h_pipe')
+#Delete
+# width of the rectangular beam pipe (x direction)
+w_pipe = 15*unit
+# height of the rectangular beam pipe (y direction)
+h_pipe = 15*unit
+# total length of the domain
+L_pipe = 50*unit 
+ 
+# width of the rectangular cavity (x direction)
+w_cavity = 50*unit
+# height of the rectangular beam pipe (y direction)
+h_cavity = 50*unit
+# length of each side of the beam pipe (z direction)
+L_cavity = 30*unit 
 t=data.get('t')
 init_time=data.get('init_time')
 nt=data.get('nt')
 nz=data.get('nz')
 sigmaz=data.get('sigmaz')
+#Delete
+sigmat= 1.000000e-09/16.     #changed from /4 to /16
+sigmaz = sigmat*picmi.constants.c 
+
 xtest=data.get('xtest')
 ytest=data.get('ytest')
 
 #reshape electric field
 Ez=[]
-Ez=np.reshape(Ez_t, (nz+1,nt))      #array to matrix (z,t)
+Ez=np.transpose(np.array(Ez_t))     #array to matrix (z,t)
 
 ######################
 # 	Wake potential   #
@@ -72,13 +91,16 @@ Ez=np.reshape(Ez_t, (nz+1,nt))      #array to matrix (z,t)
 #---------------------------------------
 
 #--- set up z, t, dt, dz
-z=np.array(z)
+z=np.linspace(min(z), max(z), nz+1)
+#z=np.array(z)
 t=np.array(t)
 dz=z[2]-z[1]
 dt=t[2]-t[1]
 zmax=np.max(z)
 zmin=np.min(z)
+
 dh=x[2]-x[1]	#resolution in the transversal plane
+init_time=5.332370636221942e-10 #time when the center of the bunch enters the cavity
 
 #--- set Wake_length, s
 Wake_length=nt*dt*c - (zmax-zmin) - init_time*c
@@ -182,7 +204,7 @@ for n in range(len(s)-1):
                                                  'y_sem_ellip_insc' : 0.99*h_rect})
     # solver object
     picFD = PIC_FD.FiniteDifferences_Staircase_SquareGrid(chamb = PyPIC_chamber, Dh = dh, sparse_solver = 'PyKLU')
-    phi_l1[:, :, n] = np.zeros_like(picFD.rho) 
+    phi_l2[:, :, n] = np.zeros_like(picFD.rho) 
 
     if t_l2>0.0:
 

@@ -20,11 +20,11 @@ import scipy as sc
 from copy import copy
 import pickle as pk
 
-
+unit = 1e-3 #mm to m
 c=sc.constants.c
 
 #--- to read the dictionary type
-with open('out_nt2000/out.txt', 'rb') as handle:
+with open('out_fixedfield/out.txt', 'rb') as handle:
   data = pk.loads(handle.read())
   print('stored variables')
   print(data.keys())
@@ -44,17 +44,36 @@ w_cavity=data.get('w_cavity')
 h_cavity=data.get('h_cavity')
 w_pipe=data.get('w_pipe')
 h_pipe=data.get('h_pipe')
+#Delete
+# width of the rectangular beam pipe (x direction)
+w_pipe = 15*unit
+# height of the rectangular beam pipe (y direction)
+h_pipe = 15*unit
+# total length of the domain
+L_pipe = 50*unit 
+ 
+# width of the rectangular cavity (x direction)
+w_cavity = 50*unit
+# height of the rectangular beam pipe (y direction)
+h_cavity = 50*unit
+# length of each side of the beam pipe (z direction)
+L_cavity = 30*unit 
+
 t=data.get('t')
 init_time=data.get('init_time')
 nt=data.get('nt')
 nz=data.get('nz')
 sigmaz=data.get('sigmaz')
+#Delete
+sigmat= 1.000000e-09/16.     #changed from /4 to /16
+sigmaz = sigmat*picmi.constants.c 
+
 xtest=data.get('xtest')
 ytest=data.get('ytest')
 
 #reshape electric field
 Ez=[]
-Ez=np.reshape(Ez_t, (nz+1,nt))      #array to matrix (z,t)
+Ez=np.transpose(np.array(Ez_t))      #array to matrix (z,t)
 
 ######################
 # 	Wake potential   #
@@ -65,13 +84,16 @@ Ez=np.reshape(Ez_t, (nz+1,nt))      #array to matrix (z,t)
 #---------------------------------------
 
 #--- set up z, t, dt, dz
-z=np.array(z)
+z=np.linspace(min(z), max(z), nz+1)
+#z=np.array(z)
 t=np.array(t)
 dz=z[2]-z[1]
 dt=t[2]-t[1]
 zmax=np.max(z)
 zmin=np.min(z)
+
 dh=x[2]-x[1]	#resolution in the transversal plane
+init_time=5.332370636221942e-10 #time when the center of the bunch enters the cavity
 
 #--- set Wake_length, s
 Wake_length=nt*dt*c - (zmax-zmin) - init_time*c
@@ -155,6 +177,8 @@ n=0
 ds=s[2]-s[1]
 
 #obtain charge distribution with a gaussian profile
+rho=np.transpose(np.array(rho_t)) #how to obtain rho(s)? TODO
+#in the meantime, a gaussian is used...
 charge_dist=(q*1e-12)*(1/(sigmaz*np.sqrt(2*np.pi)))*np.exp(-(0.5*(s-0.0)**2.)/(sigmaz)**2.)  #charge distribution [pC/m]
 charge_dist_norm=charge_dist/(q*1e-12) #normalized charge distribution [-]
 
@@ -249,6 +273,79 @@ ax.set(title='Longitudinal impedance Z(w) magnitude',
         ylabel='Z [Ohm]',   
         ylim=(0.,np.max(Z)*1.2),
         xlim=(0.,np.max(Z_freq))      
+        )
+ax.legend(loc='best')
+ax.grid(True, color='gray', linewidth=0.2)
+plt.show()
+
+############################
+#   Comparison with CST    #
+############################
+
+#--- read the cst dictionary
+with open('cst/cst_out.txt', 'rb') as handle:
+  cst_data = pk.loads(handle.read())
+  print('cst stored variables')
+  print(cst_data.keys())
+
+charge_dist_cst=cst_data.get('charge_dist')
+distance=cst_data.get('distance')
+Wake_potential_cst=cst_data.get('Wake_potential_cst')
+s_cst=cst_data.get('s_cst')
+Z_cst=cst_data.get('Z_cst')
+freq_cst=cst_data.get('freq_cst')
+
+#--- Plot comparison
+
+q=(1e-9)*1e12 # charge of the particle beam in pC
+fig4 = plt.figure(4, figsize=(6,4), dpi=200, tight_layout=True)
+ax=fig4.gca()
+ax.plot(s*1.0e3, Wake_potential, lw=1.2, color='orange', label='W_//(s) indirect integration')
+ax.plot(s_cst*1e3, Wake_potential_cst, lw=1.3, color='black', ls='--', label='W_//(s) CST')
+ax.set(title='Longitudinal Wake potential',
+        xlabel='s [mm]',
+        ylabel='$W_{//}$ [V/pC]',
+        )
+ax.legend(loc='best')
+ax.grid(True, color='gray', linewidth=0.2)
+plt.show()
+
+
+#--- Plot normalized comparison comparison
+
+fig5 = plt.figure(5, figsize=(6,4), dpi=200, tight_layout=True)
+ax=fig5.gca()
+ax.plot(s*1e3, Wake_potential/np.max(Wake_potential), lw=1.3, color='orange', label='$W_{//}(s)$ indirect integration')
+ax.plot(s_cst*1e3, Wake_potential_cst/np.max(Wake_potential_cst), lw=1.2, color='orange', ls='--', label='$W_{//}(s)$ from CST')
+ax.set(title='Normalized longitudinal Wake potential',
+        xlabel='s [mm]',
+        ylabel='$W_{//}$ [V/pC]',
+        ylim=(-1.5,1.5)
+        )
+ax.legend(loc='best')
+ax.grid(True, color='gray', linewidth=0.2)
+plt.show()
+
+#--- Plot impedance comparison with CST [normalized]
+
+norm=max(Z)/max(Z_cst) #diference between max in CST and in numpy.fft
+ifreq_max=np.argmax(Z[0:len(Z)//2])
+fig3 = plt.figure(3, figsize=(6,4), dpi=200, tight_layout=True)
+ax=fig3.gca()
+ax.plot(Z_freq[ifreq_max], Z[ifreq_max]/norm, marker='o', markersize=4.0, color='cyan')
+ax.annotate(str(round(Z_freq[ifreq_max],2))+ ' GHz', xy=(Z_freq[ifreq_max],Z[ifreq_max]/norm), xytext=(-10,5), textcoords='offset points', color='grey') 
+ax.plot(Z_freq[0:len(Z)//2], Z[0:len(Z)//2]/norm, lw=1, color='b', label='numpy FFT')
+
+ifreq_max=np.argmax(Z_cst)
+ax.plot(freq_cst[ifreq_max]*1e-9, Z_cst[ifreq_max], marker='o', markersize=5.0, color='pink')
+ax.annotate(str(round(freq_cst[ifreq_max]*1e-9,2))+ ' GHz', xy=(freq_cst[ifreq_max]*1e-9,Z_cst[ifreq_max]), xytext=(-10,2), textcoords='offset points', color='grey') 
+ax.plot(freq_cst*1.0e-9, Z_cst, lw=1.2, color='red', label='W// from CST')
+
+ax.set(title='Longitudinal impedance Z(w) magnitude',
+        xlabel='f [GHz]',
+        ylabel='Z [Ohm]',   
+        ylim=(0.,np.max(Z_cst)*1.2),
+        xlim=(0.,np.max(freq_cst)*1e-9)      
         )
 ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)

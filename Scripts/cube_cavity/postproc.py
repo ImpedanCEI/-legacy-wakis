@@ -18,7 +18,7 @@ from copy import copy
 import pickle as pk
 
 #--- read the dictionary
-with open('out/out.txt', 'rb') as handle:
+with open('out_fixedfield/out.txt', 'rb') as handle:
   data = pk.loads(handle.read())
   print('stored variables')
   print(data.keys())
@@ -45,11 +45,10 @@ ytest=data.get('ytest')
 ###################
 
 #--- Plot Electric field at cavity center
-
-Ez=[]
-Ez=np.reshape(Ez_t, (nz+1,nt))      #array to matrix (z,t)
-Ex=np.reshape(Ex_t, (nz+1,nt)) 	    #array to matrix (z,t)
-Ey=np.reshape(Ex_t, (nz+1,nt)) 	    #array to matrix (z,t)
+z=np.linspace(min(z), max(z), nz+1)
+Ez=np.transpose(np.array(Ez_t))     #np.reshape(Ez_t, (nz+1,nt))      #array to matrix (z,t)
+Ex=np.transpose(np.array(Ex_t))     #list to matrix (z,t)
+Ey=np.transpose(np.array(Ey_t))     #list to matrix (z,t)
 t=np.array(t)
 E_abs=np.sqrt(Ez[int(nz/2), :]**2+Ex[int(nz/2), :]**2+Ey[int(nz/2), :]**2)
 
@@ -94,9 +93,8 @@ plt.show()
 
 #--- Plot charge density at cavity center
 
-n=int(nt/2)
-rho=[]
-rho=np.reshape(rho_t, (nz+1,nt))      #array to matrix (z,t)
+n=int(738)
+rho=np.transpose(np.array(rho_t))      #array to matrix (z,t)
 
 fig3 = plt.figure(3, figsize=(6,4), dpi=200, tight_layout=True)
 ax3=fig3.gca()
@@ -153,17 +151,17 @@ ax5=fig5.gca()
 
 ax5.plot(freq[0:int(len(freq)/2)], Amp[0:int(len(freq)/2)], lw=1, color='b', label='fft Warp')
 ax5.plot(freq[Amp_max], Amp[Amp_max], marker='o', markersize=4.0, color='cyan')
-ax5.annotate(str(round(freq[Amp_max],2))+ ' GHz', xy=(freq[Amp_max],Amp[Amp_max]), xytext=(1,1), textcoords='offset points', color='grey')
+ax5.annotate(str(round(freq[Amp_max],2))+ ' GHz', xy=(freq[Amp_max],Amp[Amp_max]), xytext=(10,5), textcoords='offset points', color='blue')
 
 ax5.plot(freq_cst[0:int(len(freq_cst)/2)], Amp_cst[0:int(len(freq_cst)/2)], lw=1, color='r', label='fft CST') 
 ax5.plot(freq_cst[Amp_cst_max], Amp_cst[Amp_cst_max], marker='o', markersize=4.0, color='pink')
-ax5.annotate(str(round(freq_cst[Amp_cst_max],2))+ ' GHz', xy=(freq_cst[Amp_cst_max],Amp_cst[Amp_cst_max]), xytext=(1,1), textcoords='offset points', color='grey')
+ax5.annotate(str(round(freq_cst[Amp_cst_max],2))+ ' GHz', xy=(freq_cst[Amp_cst_max],Amp_cst[Amp_cst_max]), xytext=(10,1), textcoords='offset points', color='red')
 
 ax5.set(title='Frequency of Electric field at cavity center',
         xlabel='f [GHz]',
         ylabel='Amplitude [dB]',   
-        ylim=(0,np.max(Amp)*1.3),
-        xlim=(0,np.max(freq))      
+        #ylim=(0,np.max(Amp)*1.3),
+        #xlim=(0,np.max(freq))      
         )
 ax5.legend(loc='best')
 ax5.grid(True, color='gray', linewidth=0.2)
