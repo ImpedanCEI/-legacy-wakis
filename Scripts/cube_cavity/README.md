@@ -1,6 +1,5 @@
 ## Cube cavity
-
-In this folder, are contained the scripts for wake potential and impedance calculation of a generic squared pillbox cavity.
+Scripts for wake potential and impedance calculation of a generic squared pillbox cavity 
 
 **- cube_cavity.py:**  
 
