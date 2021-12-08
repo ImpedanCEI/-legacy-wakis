@@ -51,7 +51,7 @@ zmax = L_pipe
 ##################################
 # generate the beam
 beam = picmi.Species(particle_type = 'proton',
-                     particle_shape = 'linear',
+                     particle_shape = 'cubic',
                      name = 'beam')
 
 ##################################
@@ -116,7 +116,7 @@ sim.step(1)
 ##################################
 # Setup the beam injection
 ##################################
-N=10**6
+N=10**7
 beam_layout = picmi.PseudoRandomLayout(n_macroparticles = N, seed = 3)
 
 sim.add_species(beam, layout=beam_layout,
@@ -184,7 +184,7 @@ step=pw.step
 ##################################
 # Perform Simulation
 ##################################
-tot_nsteps = 1000
+tot_nsteps = 3000
 t0 = time.time()
 
 #pre-allocate timedep variables
