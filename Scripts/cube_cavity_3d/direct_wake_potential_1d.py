@@ -19,17 +19,28 @@ import os
 import scipy as sc  
 from copy import copy
 import pickle as pk
+import h5py as h5py
 
 unit = 1e-3 #mm to m
 c=sc.constants.c
 
-#--- to read the dictionary type
-with open('out_fixedfield/out.txt', 'rb') as handle:
+######################
+#      Read data     #
+######################
+
+out_folder='out/'
+
+#------------------------------------#
+#            1D variables            #
+#------------------------------------#
+
+#--- read the dictionary
+with open(out_folder+'out.txt', 'rb') as handle:
   data = pk.loads(handle.read())
-  print('stored variables')
+  print('stored 1D variables')
   print(data.keys())
 
-#--- retrieve the variables
+#--- retrieve 1D variables
 
 Ez_t=data.get('Ez')
 Ex_t=data.get('Ex')
@@ -46,59 +57,40 @@ L_cavity=data.get('L_cavity')
 w_pipe=data.get('w_pipe')
 h_pipe=data.get('h_pipe')
 L_pipe=data.get('L_pipe')
-
-#Delete
-# width of the rectangular beam pipe (x direction)
-w_pipe = 15*unit
-# height of the rectangular beam pipe (y direction)
-h_pipe = 15*unit
-# total length of the domain
-L_pipe = 50*unit 
- 
-# width of the rectangular cavity (x direction)
-w_cavity = 50*unit
-# height of the rectangular beam pipe (y direction)
-h_cavity = 50*unit
-# length of each side of the beam pipe (z direction)
-L_cavity = 30*unit 
-
 t=data.get('t')
 init_time=data.get('init_time')
-nt=data.get('nt')
+nt=data.get('nt') #number of timesteps
 nz=data.get('nz')
 sigmaz=data.get('sigmaz')
-#Delete
-sigmat= 1.000000e-09/16.     #changed from /4 to /16
-sigmaz = sigmat*picmi.constants.c 
-
 xtest=data.get('xtest')
 ytest=data.get('ytest')
 
+#--- auxiliary variables
+zmin=min(z)
+zmax=max(z)
+xmin=min(x)
+xmax=max(x)
+ymin=min(y)
+ymax=max(y)
+
 #reshape electric field
 Ez=[]
-Ez=np.transpose(np.array(Ez_t))      #array to matrix (z,t)
+Ez=np.transpose(np.array(Ez_t))     #array to matrix (z,t)
 
 ######################
-# 	Wake potential   #
+#   Wake potential   #
 ######################
 
-#---------------------------------------
-# Set up the poisson solver from PyPIC #
-#---------------------------------------
+t0 = time.time()
 
-#--- set up z, t, dt, dz
-z=np.linspace(min(z), max(z), nz+1)
-#z=np.array(z)
+# set up z, t, dt, dz
+z=np.array(z)
 t=np.array(t)
 dz=z[2]-z[1]
 dt=t[2]-t[1]
-zmax=np.max(z)
-zmin=np.min(z)
+dh=x[2]-x[1]    #resolution in the transversal plane
 
-dh=x[2]-x[1]	#resolution in the transversal plane
-init_time=5.332370636221942e-10 #time when the center of the bunch enters the cavity
-
-#--- set Wake_length, s
+# set Wake_length, s
 Wake_length=nt*dt*c - (zmax-zmin) - init_time*c
 print('Max simulated time = '+str(round(t[-1]*1.0e9,4))+' ns')
 print('Wake_length = '+str(Wake_length*1e3)+' mm')
@@ -107,61 +99,60 @@ ns_pos=int(Wake_length/(dt*c))  #obtains the length of the positive part of s
 s=np.linspace(-init_time*c, 0, ns_neg) #sets the values for negative s
 s=np.append(s, np.linspace(0, Wake_length,  ns_pos))
 
-#--- initialize Wp 
+# initialize Wp variables
 Wake_potential=np.zeros_like(s)
-
-#--- interpolate Ez so nz == nt
-z_interp=np.linspace(zmin, zmax, nt)
-Ez_interp=np.zeros((nt,nt))
-dz_interp=z_interp[2]-z_interp[1]
-n=0
-for n in range(nt):
-    Ez_interp[:, n]=np.interp(z_interp, z, Ez[:, n])
-
-#--- define the limits for the poisson and the integral
-l1=(L_cavity/2.0)         #[m]
-l2=(L_cavity/2.0)         #[m] 
-iz_l1=int((-l1-z_interp[0])/dz_interp)
-iz_l2=int((l2-z_interp[0])/dz_interp)
-
-#--- initialize variables
-Ez_dt=np.zeros((nt,nt))  #time derivative of Ez
-Ez_dz=np.zeros((nt,nt))  #z spatial derivative of Ez
+integral = np.zeros(len(s))  #integral of ez between -l1, l2
 t_s = np.zeros((nt, len(s)))
 
+# interpolate Ez so nz == nt
+z_interp=np.linspace(zmin, zmax, nt)
+dz_interp=z_interp[2]-z_interp[1]
+Ez_interp=np.zeros((nt,nt))
+
+n=0
+for n in range(nt):
+    if not np.any(Ez[:,n]): #if Ez=0 skip the interpolation
+        pass
+    else:
+        Ez_interp[:, n]=np.interp(z_interp, z , Ez[:,n])
 
 #-----------------------#
 #      Obtain W(s)      #
 #-----------------------#
 
 # s loop -------------------------------------#                                                           
+n=0
+for n in range(len(s)):    
 
-for n in range(len(s)-1):    
-
-    
     #--------------------------------#
     # integral between zmin and zmax #
     #--------------------------------#
 
     #integral of (Ez(xtest, ytest, z, t=(s+z)/c))dz
-    #E - the correct integral is only obtained when integrating the field in the cavity only
-
     k=0
     for k in range(0, nt): 
-        t_s[k,n]=(z_interp[k]+s[n])/c-zmin/c-t[0]+init_time
+        if not np.any(Ez_interp[k, :]): #if Ez=0 skip the interpolation
+            break
+        else:
+            t_s[k,n]=(z_interp[k]+s[n])/c-zmin/c-t[0]+init_time
 
-        if t_s[k,n]>0.0:
-            it=int(t_s[k,n]/dt)                             #find index for t
-            Wake_potential[n]=Wake_potential[n]+(Ez_interp[k, it])*dz_interp   #compute integral
+            if t_s[k,n]>0.0:
+                it=int(t_s[k,n]/dt)                             #find index for t
+                Wake_potential[n]=Wake_potential[n]+(Ez_interp[k, it])*dz_interp   #compute integral
 
 q=(1e-9)*1e12                       # charge of the particle beam in pC
 Wake_potential=Wake_potential/q     # [V/pC]
 
-#--- plot wake potential
+#Calculate simulation time
+t1 = time.time()
+totalt = t1-t0
+print('Calculation terminated in %ds' %totalt)
+
+#--- plot wake potential in different locations
 
 fig1 = plt.figure(1, figsize=(6,4), dpi=200, tight_layout=True)
 ax=fig1.gca()
-ax.plot(s*1.0e3, Wake_potential, lw=1.2, color='orange', label='W_//(s)')
+ax.plot(s*1.0e3, Wake_potential, lw=1.2, color='orange', label='W_//[0,0](s)')
 ax.set(title='Longitudinal Wake potential',
         xlabel='s [mm]',
         ylabel='$W_{//}$ [V/pC]',
@@ -180,7 +171,7 @@ n=0
 ds=s[2]-s[1]
 
 #obtain charge distribution with a gaussian profile
-rho=np.transpose(np.array(rho_t)) #how to obtain rho(s)? TODO
+rho=np.transpose(np.array(rho_t)) #how to obtain rho(s) from warp as a function of s? TODO
 #in the meantime, a gaussian is used...
 charge_dist=(q*1e-12)*(1/(sigmaz*np.sqrt(2*np.pi)))*np.exp(-(0.5*(s-0.0)**2.)/(sigmaz)**2.)  #charge distribution [pC/m]
 charge_dist_norm=charge_dist/(q*1e-12) #normalized charge distribution [-]
@@ -192,54 +183,10 @@ for n in range(len(s)):
 k_factor=-k_factor # [V/pC]
 print('calculated k_factor = '+str(format(k_factor, '.3e')) + ' [V/pC]')
 
+
 #--------------------------------#
 #      Obtain impedance Z||      #
 #--------------------------------#
-
-#--- DFT function definition like in CST [not working]
-
-class Fourier:
-    def __init__(self, dft, freqs):
-        self.dft = dft
-        self.freqs = freqs
-
-def DFT(F, dt, N): 
-        #function to obtain the DFT with 1000 samples
-        #--F: function in time domain
-        #--dt: time sampling width
-        #--N: number of time samples
-
-        #define frequency domain
-        N_samples=1000  # same number as CST
-        f_max = 5.0     # maximum freq in GHz
-        freqs=np.linspace(-f_max,f_max,N_samples)*1e9 #frequency range [Hz]
-        dft=np.zeros_like(freqs)*1j
-        padding=1     #length of the padding with zero
-        F=np.append(F,np.zeros(padding))
-        print('Performing DFT with '+str(N_samples)+'samples')
-        print('Frequency bin resolution'+str(round(1/(N*dt)*1e-9,3))+ 'GHz')
-        print('Frequency range')
-
-        for m in range(N_samples):
-            for k in range(N+padding):
-                dft[m]=dft[m]+F[k]*np.exp(-1j*k*dt*freqs[m]) 
-
-        dft=dt/np.sqrt(np.pi)*dft #Magnitude in [Ohm]
-        freqs=freqs*1e-9 #in [GHz]
-        return Fourier(dft,freqs)        
-
-#--- Obtain impedance Z
-# charge_dist_fft=DFT(charge_dist, ds/c, len(s)) 
-# Wake_potential_fft=DFT(Wake_potential, ds/c, len(s))
-# Z = abs(- Wake_potential_fft.dft / charge_dist_fft.dft)/c
-# Z_freq = Wake_potential_fft.freqs 
-# ifreq_max=np.argmax(Z[0:len(Z)//2])+len(Z)//2 # obtains the largest value's index
-
-#--- Obtain impedance Z considering only the positive part of s vector
-# charge_dist_fft=DFT(charge_dist[ns_neg:], ds, len(s)-ns_neg) 
-# Wake_potential_fft=DFT(Wake_potential[ns_neg:], ds, len(s)-ns_neg)
-# Z = abs(- Wake_potential_fft.dft / charge_dist_fft.dft )/c
-# Z_freq = Wake_potential_fft.freqs
 
 #--- Obtain impedance Z with Fourier transform numpy.fft.fft
 
@@ -258,7 +205,6 @@ charge_dist_fft=abs(np.fft.fft(charge_dist_padded[0:-1:t_sample]))
 Wake_potential_fft=abs(np.fft.fft(Wake_potential_padded[0:-1:t_sample]))
 Z_freq = np.fft.fftfreq(len(Wake_potential_padded[:-1:t_sample]), ds/c*t_sample)*1e-9 #GHz
 Z = abs(- Wake_potential_fft / charge_dist_fft)
-
 
 #--- Plot impedance
 
@@ -281,6 +227,18 @@ ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)
 plt.show()
 
+#--- Save the data 
+data = { 'Wake_potential' : Wake_potential, 
+         's' : s,
+         'k_factor' : k_factor,
+         'Impedance' : Z,
+         'frequency' : Z_freq
+        }
+# write the dictionary to a txt using pickle module
+with open(out_folder + 'wake_solver.txt', 'wb') as handle:
+  pk.dump(data, handle)
+
+'''
 ############################
 #   Comparison with CST    #
 ############################
@@ -354,3 +312,4 @@ ax.set(title='Longitudinal impedance Z(w) magnitude',
 ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)
 plt.show()
+'''

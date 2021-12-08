@@ -1,0 +1,8 @@
+universe = vanilla
+executable = /afs/cern.ch/user/e/edelafue/WarpBasics/Scripts/cube_cavity_3d/cube_cavity_3d.job
+output = /afs/cern.ch/user/e/edelafue/WarpBasics/Scripts/cube_cavity_3d/cube_cavity_3d.out
+error = /afs/cern.ch/user/e/edelafue/WarpBasics/Scripts/cube_cavity_3d/cube_cavity_3d.err
+log = /afs/cern.ch/user/e/edelafue/WarpBasics/Scripts/cube_cavity_3d/cube_cavity_3d.log
+RequestCpus = 1 
++MaxRuntime = 100000
+queue

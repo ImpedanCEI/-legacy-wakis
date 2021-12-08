@@ -133,7 +133,7 @@ b2=h_pipe/2.0             #[m]
 # define the rectangle size (aperture = half the area)
 w_rect = w_pipe/2.0
 h_rect = h_pipe/2.0
-# find indexes for l1, l2, b1, b2
+# find indexes for l1, l2 
 iz_l1=int((-l1-z_interp[0])/dz_interp)
 iz_l2=int((l2-z_interp[0])/dz_interp)
 

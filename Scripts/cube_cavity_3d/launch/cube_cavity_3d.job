@@ -1,0 +1,22 @@
+#!/bin/bash
+
+CURRDIR=/afs/cern.ch/user/e/edelafue/WarpBasics/Scripts/cube_cavity_3d
+export CURRDIR
+
+source /afs/cern.ch/work/e/edelafue/sim_workspace_mpi/virtualenvs/py3.7/bin/activate
+which python
+
+
+cp ${CURRDIR}/cube_cavity_3d.py .
+
+#mpiexec to run in parallel -np 'number of processors' and -p 'splits in x' 'splits in y' 'splits in z' 
+#better to only split in z with -p = -np. Check minimum number of cells
+/afs/cern.ch/work/e/edelafue/sim_workspace_mpi/openmpi/bin/mpiexec -np 1 python cube_cavity_3d.py -p 1 1 1
+
+cp -r out  ${CURRDIR}/runs/. #copies the output folder
+cp ${CURRDIR}/cube_cavity_3d.* ${CURRDIR}/runs/out/. #copies all scripts
+#cp -r out /eos/user/e/edelafue/simulations/Warp/ 
+
+#tar -czvf images.tar.gz images
+#cp -r images.tar.gz ${CURRDIR}/. #copies the images folder
+

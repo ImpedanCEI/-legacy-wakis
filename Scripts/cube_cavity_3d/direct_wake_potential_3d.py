@@ -19,17 +19,28 @@ import os
 import scipy as sc  
 from copy import copy
 import pickle as pk
+import h5py as h5py
 
 unit = 1e-3 #mm to m
 c=sc.constants.c
 
-#--- to read the dictionary type
-with open('out_fixedfield/out.txt', 'rb') as handle:
+######################
+#      Read data     #
+######################
+
+out_folder='out/'
+
+#------------------------------------#
+#            1D variables            #
+#------------------------------------#
+
+#--- read the dictionary
+with open(out_folder+'out.txt', 'rb') as handle:
   data = pk.loads(handle.read())
-  print('stored variables')
+  print('stored 1D variables')
   print(data.keys())
 
-#--- retrieve the variables
+#--- retrieve 1D variables
 
 Ez_t=data.get('Ez')
 Ex_t=data.get('Ex')
@@ -46,59 +57,61 @@ L_cavity=data.get('L_cavity')
 w_pipe=data.get('w_pipe')
 h_pipe=data.get('h_pipe')
 L_pipe=data.get('L_pipe')
-
-#Delete
-# width of the rectangular beam pipe (x direction)
-w_pipe = 15*unit
-# height of the rectangular beam pipe (y direction)
-h_pipe = 15*unit
-# total length of the domain
-L_pipe = 50*unit 
- 
-# width of the rectangular cavity (x direction)
-w_cavity = 50*unit
-# height of the rectangular beam pipe (y direction)
-h_cavity = 50*unit
-# length of each side of the beam pipe (z direction)
-L_cavity = 30*unit 
-
 t=data.get('t')
 init_time=data.get('init_time')
-nt=data.get('nt')
+nt=data.get('nt') #number of timesteps
 nz=data.get('nz')
 sigmaz=data.get('sigmaz')
-#Delete
-sigmat= 1.000000e-09/16.     #changed from /4 to /16
-sigmaz = sigmat*picmi.constants.c 
-
 xtest=data.get('xtest')
 ytest=data.get('ytest')
 
-#reshape electric field
-Ez=[]
-Ez=np.transpose(np.array(Ez_t))      #array to matrix (z,t)
+#--- auxiliary variables
+zmin=min(z)
+zmax=max(z)
+xmin=min(x)
+xmax=max(x)
+ymin=min(y)
+ymax=max(y)
+
+
+#------------------------------------#
+#            3D variables            #
+#------------------------------------#
+
+#--- read the h5 file
+hf = h5py.File(out_folder+'Ez.h5', 'r')
+print('reading the h5 file '+ out_folder +'Ez.h5')
+print('size of the file: '+str(round((os.path.getsize(out_folder+'Ez.h5')/10**9),2))+' Gb')
+#get number of datasets
+size_hf=0.0
+dataset=[]
+n_step=[]
+for key in hf.keys():
+    size_hf+=1
+    dataset.append(key)
+    n_step.append(int(key.split('_')[1]))
+
+Ez_0=hf.get(dataset[0])
+shapex=Ez_0.shape[0]  
+shapey=Ez_0.shape[1] 
+shapez=Ez_0.shape[2] 
+
+print('Ez field is stored in a matrix with shape '+str(Ez_0.shape)+' in '+str(int(size_hf))+' datasets')
 
 ######################
-# 	Wake potential   #
+#   Wake potential   #
 ######################
 
-#---------------------------------------
-# Set up the poisson solver from PyPIC #
-#---------------------------------------
+t0 = time.time()
 
-#--- set up z, t, dt, dz
-z=np.linspace(min(z), max(z), nz+1)
-#z=np.array(z)
+# set up z, t, dt, dz
+z=np.array(z)
 t=np.array(t)
 dz=z[2]-z[1]
 dt=t[2]-t[1]
-zmax=np.max(z)
-zmin=np.min(z)
+dh=x[2]-x[1]    #resolution in the transversal plane
 
-dh=x[2]-x[1]	#resolution in the transversal plane
-init_time=5.332370636221942e-10 #time when the center of the bunch enters the cavity
-
-#--- set Wake_length, s
+# set Wake_length, s
 Wake_length=nt*dt*c - (zmax-zmin) - init_time*c
 print('Max simulated time = '+str(round(t[-1]*1.0e9,4))+' ns')
 print('Wake_length = '+str(Wake_length*1e3)+' mm')
@@ -107,61 +120,71 @@ ns_pos=int(Wake_length/(dt*c))  #obtains the length of the positive part of s
 s=np.linspace(-init_time*c, 0, ns_neg) #sets the values for negative s
 s=np.append(s, np.linspace(0, Wake_length,  ns_pos))
 
-#--- initialize Wp 
+#--- initialize Wp variables
 Wake_potential=np.zeros_like(s)
+integral = np.zeros(len(s))  #integral of ez between -l1, l2
+t_s = np.zeros((nt, len(s)))
 
 #--- interpolate Ez so nz == nt
 z_interp=np.linspace(zmin, zmax, nt)
-Ez_interp=np.zeros((nt,nt))
 dz_interp=z_interp[2]-z_interp[1]
-n=0
-for n in range(nt):
-    Ez_interp[:, n]=np.interp(z_interp, z, Ez[:, n])
+Ez_interp=np.zeros((nt,nt))
 
-#--- define the limits for the poisson and the integral
-l1=(L_cavity/2.0)         #[m]
-l2=(L_cavity/2.0)         #[m] 
-iz_l1=int((-l1-z_interp[0])/dz_interp)
-iz_l2=int((l2-z_interp[0])/dz_interp)
+# initialize wake potential matrix
+Wake_potential_3d=np.zeros((shapex,shapey,len(s)))
 
-#--- initialize variables
-Ez_dt=np.zeros((nt,nt))  #time derivative of Ez
-Ez_dz=np.zeros((nt,nt))  #z spatial derivative of Ez
-t_s = np.zeros((nt, len(s)))
+for i in range(shapex):
+    for j in range(shapey):
 
+        n=0
+        for n in range(nt):
+            Ez=hf.get(dataset[n])
+            if not np.any(Ez[i,j,:]): #if Ez=0 skip the interpolation
+                break
+            else:
+                Ez_interp[:, n]=np.interp(z_interp, z , Ez[i,j,:])
 
-#-----------------------#
-#      Obtain W(s)      #
-#-----------------------#
+        #-----------------------#
+        #      Obtain W(s)      #
+        #-----------------------#
 
-# s loop -------------------------------------#                                                           
+        # s loop -------------------------------------#                                                           
+        n=0
+        for n in range(len(s)-1):    
 
-for n in range(len(s)-1):    
+            #--------------------------------#
+            # integral between zmin and zmax #
+            #--------------------------------#
 
-    
-    #--------------------------------#
-    # integral between zmin and zmax #
-    #--------------------------------#
+            #integral of (Ez(xtest, ytest, z, t=(s+z)/c))dz
+            k=0
+            for k in range(0, nt): 
+                if not np.any(Ez_interp[k, :]): #if Ez=0 skip the interpolation
+                    break
+                else:
+                    t_s[k,n]=(z_interp[k]+s[n])/c-zmin/c-t[0]+init_time
 
-    #integral of (Ez(xtest, ytest, z, t=(s+z)/c))dz
-    #E - the correct integral is only obtained when integrating the field in the cavity only
+                    if t_s[k,n]>0.0:
+                        it=int(t_s[k,n]/dt)                             #find index for t
+                        Wake_potential[n]=Wake_potential[n]+(Ez_interp[k, it])*dz_interp   #compute integral
 
-    k=0
-    for k in range(0, nt): 
-        t_s[k,n]=(z_interp[k]+s[n])/c-zmin/c-t[0]+init_time
+        q=(1e-9)*1e12                       # charge of the particle beam in pC
+        Wake_potential=Wake_potential/q     # [V/pC]
+        Wake_potential_3d[i,j,:]=Wake_potential #matrix[shapex,xhapey,len(s)]
 
-        if t_s[k,n]>0.0:
-            it=int(t_s[k,n]/dt)                             #find index for t
-            Wake_potential[n]=Wake_potential[n]+(Ez_interp[k, it])*dz_interp   #compute integral
+#Calculate simulation time
+t1 = time.time()
+totalt = t1-t0
+print('Calculation terminated in %ds' %totalt)
 
-q=(1e-9)*1e12                       # charge of the particle beam in pC
-Wake_potential=Wake_potential/q     # [V/pC]
-
-#--- plot wake potential
+#--- plot wake potential in different locations
 
 fig1 = plt.figure(1, figsize=(6,4), dpi=200, tight_layout=True)
 ax=fig1.gca()
-ax.plot(s*1.0e3, Wake_potential, lw=1.2, color='orange', label='W_//(s)')
+ax.plot(s*1.0e3, Wake_potential_3d[shapex//2, shapey//2,:], lw=1.2, color='orange', label='W_//[0,0](s)')
+ax.plot(s*1.0e3, Wake_potential_3d[shapex//2+int(w_pipe/2.0/dh), shapey//2,:], lw=1.2, color='cyan', label='W_//[w_pipe/2,0](s)')
+ax.plot(s*1.0e3, Wake_potential_3d[shapex//2+int(w_pipe/4.0/dh), shapey//2,:], lw=1.2, color='green', label='W_//[w_pipe/4,0](s)')
+ax.plot(s*1.0e3, Wake_potential_3d[shapex//2+int(w_cavity/2.0/dh), shapey//2,:], lw=1.2, color='magenta', label='W_//[w_cavity/2,0](s)')
 ax.set(title='Longitudinal Wake potential',
         xlabel='s [mm]',
         ylabel='$W_{//}$ [V/pC]',
@@ -169,6 +192,29 @@ ax.set(title='Longitudinal Wake potential',
 ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)
 plt.show()
+
+#--- save the 3D data in a h5 file
+#create h5 files overwriting previous one
+if os.path.exists(out_folder+'Wake_potential.h5'):
+    os.remove(out_folder+'Wake_potential.h5')
+
+hf = h5py.File(out_folder+'Wake_potential.h5', 'w')
+hf.create_dataset('Wake_potential_3d', data=Wake_potential_3d)
+hf.create_dataset('Wake_potential_00', data=Wake_potential_3d[shapex//2,shapey//2,:])
+
+#close the hdf5 file
+hf.close()
+
+#--- Save the 1D data 
+data = { 'Wake_potential' : Wake_potential, 
+         's' : s
+         'k_factor' : k_factor,
+         'Impedance' : Z,
+         'frequency' : Z_freq
+        }
+# write the dictionary to a txt using pickle module
+with open(out_folder + 'wake_solver.txt', 'wb') as handle:
+  pk.dump(data, handle)
 
 #--------------------------------#
 #      Obtain k loss factor      #
@@ -180,66 +226,22 @@ n=0
 ds=s[2]-s[1]
 
 #obtain charge distribution with a gaussian profile
-rho=np.transpose(np.array(rho_t)) #how to obtain rho(s)? TODO
+rho=np.transpose(np.array(rho_t)) #how to obtain rho(s) from warp as a function of s? TODO
 #in the meantime, a gaussian is used...
 charge_dist=(q*1e-12)*(1/(sigmaz*np.sqrt(2*np.pi)))*np.exp(-(0.5*(s-0.0)**2.)/(sigmaz)**2.)  #charge distribution [pC/m]
 charge_dist_norm=charge_dist/(q*1e-12) #normalized charge distribution [-]
 
 #perform the integral int{-inf,inf}(-lambda*Wake_potential*ds)
 for n in range(len(s)): 
-    k_factor=k_factor+charge_dist_norm[n]*Wake_potential[n]*ds
+    k_factor=k_factor+charge_dist_norm[n]*Wake_potential_3d[shapex//2, shapey//2,n]*ds
 
 k_factor=-k_factor # [V/pC]
 print('calculated k_factor = '+str(format(k_factor, '.3e')) + ' [V/pC]')
 
+
 #--------------------------------#
 #      Obtain impedance Z||      #
 #--------------------------------#
-
-#--- DFT function definition like in CST [not working]
-
-class Fourier:
-    def __init__(self, dft, freqs):
-        self.dft = dft
-        self.freqs = freqs
-
-def DFT(F, dt, N): 
-        #function to obtain the DFT with 1000 samples
-        #--F: function in time domain
-        #--dt: time sampling width
-        #--N: number of time samples
-
-        #define frequency domain
-        N_samples=1000  # same number as CST
-        f_max = 5.0     # maximum freq in GHz
-        freqs=np.linspace(-f_max,f_max,N_samples)*1e9 #frequency range [Hz]
-        dft=np.zeros_like(freqs)*1j
-        padding=1     #length of the padding with zero
-        F=np.append(F,np.zeros(padding))
-        print('Performing DFT with '+str(N_samples)+'samples')
-        print('Frequency bin resolution'+str(round(1/(N*dt)*1e-9,3))+ 'GHz')
-        print('Frequency range')
-
-        for m in range(N_samples):
-            for k in range(N+padding):
-                dft[m]=dft[m]+F[k]*np.exp(-1j*k*dt*freqs[m]) 
-
-        dft=dt/np.sqrt(np.pi)*dft #Magnitude in [Ohm]
-        freqs=freqs*1e-9 #in [GHz]
-        return Fourier(dft,freqs)        
-
-#--- Obtain impedance Z
-# charge_dist_fft=DFT(charge_dist, ds/c, len(s)) 
-# Wake_potential_fft=DFT(Wake_potential, ds/c, len(s))
-# Z = abs(- Wake_potential_fft.dft / charge_dist_fft.dft)/c
-# Z_freq = Wake_potential_fft.freqs 
-# ifreq_max=np.argmax(Z[0:len(Z)//2])+len(Z)//2 # obtains the largest value's index
-
-#--- Obtain impedance Z considering only the positive part of s vector
-# charge_dist_fft=DFT(charge_dist[ns_neg:], ds, len(s)-ns_neg) 
-# Wake_potential_fft=DFT(Wake_potential[ns_neg:], ds, len(s)-ns_neg)
-# Z = abs(- Wake_potential_fft.dft / charge_dist_fft.dft )/c
-# Z_freq = Wake_potential_fft.freqs
 
 #--- Obtain impedance Z with Fourier transform numpy.fft.fft
 
@@ -253,12 +255,11 @@ print('Frequency range: 0 - '+str(round(f_max*1e-9,2)) +' GHz')
 
 # Padding woth zeros to increase N samples = smoother FFT
 charge_dist_padded=np.append(charge_dist, np.zeros(10000))
-Wake_potential_padded=np.append(Wake_potential, np.zeros(10000))
+Wake_potential_padded=np.append(Wake_potential_3d[shapex//2, shapey//2,:], np.zeros(10000))
 charge_dist_fft=abs(np.fft.fft(charge_dist_padded[0:-1:t_sample]))
 Wake_potential_fft=abs(np.fft.fft(Wake_potential_padded[0:-1:t_sample]))
 Z_freq = np.fft.fftfreq(len(Wake_potential_padded[:-1:t_sample]), ds/c*t_sample)*1e-9 #GHz
 Z = abs(- Wake_potential_fft / charge_dist_fft)
-
 
 #--- Plot impedance
 
@@ -281,6 +282,7 @@ ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)
 plt.show()
 
+'''
 ############################
 #   Comparison with CST    #
 ############################
@@ -354,3 +356,4 @@ ax.set(title='Longitudinal impedance Z(w) magnitude',
 ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)
 plt.show()
+'''
