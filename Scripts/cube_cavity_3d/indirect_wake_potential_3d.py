@@ -215,10 +215,10 @@ for n in range(len(s)-1):
         for i in range(shapex):
             for j in range(shapey):
                 # obtain the derivatives for each x, y in the transverse plane
-                Ez_dz[i,j]=(Ez[i, j, l1+1] - Ez[i, j, l1])/dz  #obtains the derivative around l1
+                Ez_dz[i,j]=(Ez[i, j, l1+1] - Ez[i, j, l1])/dz    #obtains the derivative around l1
                 Ez_dt[i,j]=(Ez_next[i, j, l1] - Ez[i,j,l1])/dt   #obtains the derivative around t_l1
                 # obtain rho for the transversal plane
-                rho[i,j] = (Ez_dt[i,j]/c - Ez_dz[i,j])      #this rho is evaluated at z=-l1, t=(s-l1)/c
+                rho[i,j] = (Ez_dt[i,j]/c - Ez_dz[i,j])           #this rho is evaluated at z=-l1, t=(s-l1)/c
 
         # solve the laplacian and obtain phi(0,0)
         picFD.solve(rho = rho)      #the dimensions are selected by pyPIC solver
@@ -257,10 +257,10 @@ for n in range(len(s)-1):
         for i in range(shapex):
             for j in range(shapey):
                 # obtain the derivatives for each x, y in the transverse plane
-                Ez_dz[i,j]=(Ez[i, j, l2+1] - Ez[i, j, l2])/dz  #obtains the derivative around l1
+                Ez_dz[i,j]=(Ez[i, j, l2+1] - Ez[i, j, l2])/dz    #obtains the derivative around l1
                 Ez_dt[i,j]=(Ez_next[i, j, l2] - Ez[i,j,l2])/dt   #obtains the derivative around t_l1
                 # obtain rho for the transversal plane
-                rho[i,j] = (Ez_dt[i,j]/c - Ez_dz[i,j])      #this rho is evaluated at z=-l1, t=(s-l1)/c
+                rho[i,j] = (Ez_dt[i,j]/c - Ez_dz[i,j])          #this rho is evaluated at z=-l1, t=(s-l1)/c
 
         # solve the laplacian and obtain phi(xtest,ytest)
         picFD.solve(rho = rho)      #rho has to be a matrix
