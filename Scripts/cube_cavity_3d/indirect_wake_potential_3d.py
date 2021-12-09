@@ -19,6 +19,7 @@ import os
 import scipy as sc  
 from copy import copy
 import pickle as pk
+import h5py as h5py
 
 #to be able to use pyPIC the BIN path is needed
 BIN = os.path.expanduser("/home/edelafue/PyCOMPLETE")
@@ -31,13 +32,23 @@ import PyPIC.FiniteDifferences_Staircase_SquareGrid as PIC_FD
 unit = 1e-3 #mm to m
 c=sc.constants.c
 
-#--- read the dictionary from cube_cavity.py Warp simulation
-with open('out_fixedfield/out.txt', 'rb') as handle:
+######################
+#      Read data     #
+######################
+
+out_folder='out/'
+
+#------------------------------------#
+#            1D variables            #
+#------------------------------------#
+
+#--- read the dictionary
+with open(out_folder+'out.txt', 'rb') as handle:
   data = pk.loads(handle.read())
-  print('stored variables')
+  print('stored 1D variables')
   print(data.keys())
 
-#--- retrieve the variables
+#--- retrieve 1D variables
 
 Ez_t=data.get('Ez')
 Ex_t=data.get('Ex')
@@ -54,36 +65,49 @@ L_cavity=data.get('L_cavity')
 w_pipe=data.get('w_pipe')
 h_pipe=data.get('h_pipe')
 L_pipe=data.get('L_pipe')
-
-#Delete
-# width of the rectangular beam pipe (x direction)
-w_pipe = 15*unit
-# height of the rectangular beam pipe (y direction)
-h_pipe = 15*unit
-# total length of the domain
-L_pipe = 50*unit 
- 
-# width of the rectangular cavity (x direction)
-w_cavity = 50*unit
-# height of the rectangular beam pipe (y direction)
-h_cavity = 50*unit
-# length of each side of the beam pipe (z direction)
-L_cavity = 30*unit 
 t=data.get('t')
 init_time=data.get('init_time')
-nt=data.get('nt')
+nt=data.get('nt') #number of timesteps
 nz=data.get('nz')
 sigmaz=data.get('sigmaz')
-#Delete
-sigmat= 1.000000e-09/16.     #changed from /4 to /16
-sigmaz = sigmat*picmi.constants.c 
-
 xtest=data.get('xtest')
 ytest=data.get('ytest')
 
+#--- auxiliary variables
+zmin=min(z)
+zmax=max(z)
+xmin=min(x)
+xmax=max(x)
+ymin=min(y)
+ymax=max(y)
+
 #reshape electric field
-Ez=[]
-Ez=np.transpose(np.array(Ez_t))     #array to matrix (z,t)
+Ez_1d=np.transpose(np.array(Ez_t))     #array to matrix (z,t)
+
+#------------------------------------#
+#            3D variables            #
+#------------------------------------#
+
+#--- read the h5 file
+hf = h5py.File(out_folder+'Ez.h5', 'r')
+print('reading the h5 file '+ out_folder +'Ez.h5')
+print('size of the file: '+str(round((os.path.getsize(out_folder+'Ez.h5')/10**9),2))+' Gb')
+#get number of datasets
+size_hf=0.0
+dataset=[]
+n_step=[]
+for key in hf.keys():
+    size_hf+=1
+    dataset.append(key)
+    n_step.append(int(key.split('_')[1]))
+
+Ez_0=hf.get(dataset[0])
+shapex=Ez_0.shape[0]  
+shapey=Ez_0.shape[1] 
+shapez=Ez_0.shape[2] 
+
+print('Ez field is stored in a matrix with shape '+str(Ez_0.shape)+' in '+str(int(size_hf))+' datasets')
+
 
 ######################
 # 	Wake potential   #
@@ -114,17 +138,6 @@ ns_pos=int(Wake_length/(dt*c))  #obtains the length of the positive part of s
 s=np.linspace(-init_time*c, 0, ns_neg) #sets the values for negative s
 s=np.append(s, np.linspace(0, Wake_length,  ns_pos))
 
-#--- initialize Wp 
-Wake_potential=np.zeros_like(s)
-
-#--- interpolate Ez so nz == nt
-z_interp=np.linspace(zmin, zmax, nt)
-Ez_interp=np.zeros((nt,nt))
-dz_interp=z_interp[2]-z_interp[1]
-n=0
-for n in range(nt):
-    Ez_interp[:, n]=np.interp(z_interp, z, Ez[:, n])
-
 #--- define the limits for the poisson and the integral
 l1=(L_cavity/2.0)         #[m]
 l2=(L_cavity/2.0)         #[m] 
@@ -133,25 +146,37 @@ b2=h_pipe/2.0             #[m]
 # define the rectangle size (aperture = half the area)
 w_rect = w_pipe/2.0
 h_rect = h_pipe/2.0
-# find indexes for l1, l2 
-iz_l1=int((-l1-z_interp[0])/dz_interp)
-iz_l2=int((l2-z_interp[0])/dz_interp)
 
-#--- initialize variables
-Ez_dt=np.zeros((nt,nt))  #time derivative of Ez
-Ez_dz=np.zeros((nt,nt))  #z spatial derivative of Ez
+
+#--- initialize variables for the indirect integration
+
 phi_l1 = np.zeros((int((w_rect*2)/dh + 10 + 1), int((h_rect*2)/dh + 8 + 1), len(s)))  
 phi_l2 = np.zeros((int((w_rect*2)/dh + 10 + 1), int((h_rect*2)/dh + 8 + 1), len(s)))  
 integral = np.zeros(len(s))  #integral of ez between -l1, l2
 t_s = np.zeros((nt, len(s)))
+Wake_potential=np.zeros_like(s)
+
+#--- interpolate Ez so nz == nt
+z_interp=np.linspace(zmin, zmax, nt)
+Ez_interp=np.zeros((nt,nt))
+dz_interp=z_interp[2]-z_interp[1]
+n=0
+for n in range(nt):
+    Ez_interp_l1[:, n]=np.interp(z_interp, z, Ez[shapex//2, shapey//2, n])
 
 #--- obtain the derivatives
-n=0
-k=0
-for n in range(nt-1):
-    for k in range(nt-1):
-        Ez_dz[k,n]= (Ez_interp[k+1, n] - Ez_interp[k, n])/dz_interp
-        Ez_dt[k,n]= (Ez_interp[k, n+1] - Ez_interp[k, n])/dt
+Ez_dt=np.zeros((nt,nt))  #time derivative of Ez
+Ez_dz=np.zeros((nt,nt))  #z spatial derivative of Ez
+# n=0
+# k=0
+# for n in range(nt-1):
+#     for k in range(nt-1):
+#         Ez_dz[k,n]= (Ez_interp[k+1, n] - Ez_interp[k, n])/dz_interp
+#         Ez_dt[k,n]= (Ez_interp[k, n+1] - Ez_interp[k, n])/dt
+
+# find indexes for l1, l2 
+iz_l1=int((-l1-z_interp[0])/dz_interp)
+iz_l2=int((l2-z_interp[0])/dz_interp)
 
 # s loop -------------------------------------#                                                           
 
@@ -182,8 +207,18 @@ for n in range(len(s)-1):
         it_l1=int(t_l1/dt)
 
         # define the left side of the laplacian (driving term rho = 1/c*dEz/dt-dEz/dz)
-        # rho = np.ones_like(picFD.rho)                                         #test rho to check the solver. Rho needs to be two dimensions?
-        rho = (Ez_dt[iz_l1,it_l1]/c - Ez_dz[iz_l1, it_l1])*np.ones_like(picFD.rho)       #this rho is a constant evaluated at z=-l1, t=(s-l1)/c
+        # [TODO: use a higer order method for the derivatives]
+
+        # store the 3D e field for this time and the previous time
+        Ez_next=hf.get(dataset[it_l1+1])
+        Ez=hf.get(dataset[it_l1])
+        for i in range(shapex):
+            for j in range(shapey):
+                # obtain the derivatives for each x, y in the transverse plane
+                Ez_dz[i,j]=(Ez[i, j, l1+1] - Ez[i, j, l1])/dz  #obtains the derivative around l1
+                Ez_dt[i,j]=(Ez_next[i, j, l1] - Ez[i,j,l1])/dt   #obtains the derivative around t_l1
+                # obtain rho for the transversal plane
+                rho[i,j] = (Ez_dt[i,j]/c - Ez_dz[i,j])      #this rho is evaluated at z=-l1, t=(s-l1)/c
 
         # solve the laplacian and obtain phi(0,0)
         picFD.solve(rho = rho)      #the dimensions are selected by pyPIC solver
@@ -214,8 +249,18 @@ for n in range(len(s)-1):
         # find t index for l2 and s[n]
         it_l2=int(t_l2/dt)
         # define the left side of the laplacian (driving term rho = 1/c*dEz/dt-dEz/dz)
-        # rho = np.ones_like(picFD.rho)                         #test rho to check the solver. Rho needs to be two dimensions?
-        rho = (Ez_dt[iz_l2, it_l2]/c - Ez_dz[iz_l2, it_l2])*np.ones_like(picFD.rho)         #this rho is a constant size[nx,ny] evaluated at z=l2, t=(s+l2)/c
+        # [TODO: use a higer order method for the derivatives]
+
+        # store the 3D e field for this time and the previous time
+        Ez_next=hf.get(dataset[it_l2+1])
+        Ez=hf.get(dataset[it_l2])
+        for i in range(shapex):
+            for j in range(shapey):
+                # obtain the derivatives for each x, y in the transverse plane
+                Ez_dz[i,j]=(Ez[i, j, l2+1] - Ez[i, j, l2])/dz  #obtains the derivative around l1
+                Ez_dt[i,j]=(Ez_next[i, j, l2] - Ez[i,j,l2])/dt   #obtains the derivative around t_l1
+                # obtain rho for the transversal plane
+                rho[i,j] = (Ez_dt[i,j]/c - Ez_dz[i,j])      #this rho is evaluated at z=-l1, t=(s-l1)/c
 
         # solve the laplacian and obtain phi(xtest,ytest)
         picFD.solve(rho = rho)      #rho has to be a matrix
