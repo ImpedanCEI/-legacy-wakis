@@ -28,7 +28,7 @@ c=sc.constants.c
 #      Read data     #
 ######################
 
-out_folder='out_N10e6_cubic/'
+out_folder='out_N10e7_cubic/'
 
 #------------------------------------#
 #            1D variables            #
