@@ -51,7 +51,7 @@ zmax = L_pipe
 ##################################
 # generate the beam
 beam = picmi.Species(particle_type = 'proton',
-                     particle_shape = 'linear',
+                     particle_shape = 'cubic',
                      name = 'beam')
 
 ##################################
@@ -92,7 +92,7 @@ flag_correct_div = True
 # (it is also interesting to try the CKC solver) by setting method='CKC'
 solver = picmi.ElectromagneticSolver(grid = grid,
                                      method = 'CKC',
-                                     cfl = 0.5,
+                                     cfl = 0.85,
                                      source_smoother = smoother,
                                      warp_l_correct_num_Cherenkov = False,
                                      warp_type_rz_depose = 0,
@@ -116,7 +116,7 @@ sim.step(1)
 ##################################
 # Setup the beam injection
 ##################################
-N=10**6
+N=10**7
 beam_layout = picmi.PseudoRandomLayout(n_macroparticles = N, seed = 3)
 
 sim.add_species(beam, layout=beam_layout,
@@ -203,7 +203,7 @@ if not os.path.exists(out_folder):
     os.mkdir(out_folder)
 
 #create h5 files overwriting previous ones
-hf_name='Ez_coarsed.h5'
+hf_name='Ez.h5'
 if os.path.exists(out_folder+hf_name):
     os.remove(out_folder+hf_name)
 

@@ -29,7 +29,7 @@ beta=1.0 #TODO: obtain beta from Warp simulation
 #      Read data     #
 ######################
 
-out_folder='out_10e7_refinedx2/'
+out_folder='out/'
 
 #------------------------------------#
 #            1D variables            #
@@ -81,6 +81,8 @@ Ey=np.transpose(np.array(Ey_t))
 Bx=np.transpose(np.array(Bx_t))
 By=np.transpose(np.array(By_t))
 
+#for unstable simulations, trim the last timesteps
+# nt=1500
 
 ######################
 #   Wake potential   #
@@ -342,7 +344,7 @@ t1 = time.time()
 totalt = t1-t0
 print('Calculation terminated in %ds' %totalt)
 
-'''
+
 ############################
 #   Comparison with CST    #
 ############################
@@ -356,21 +358,47 @@ with open('cst/cst_out.txt', 'rb') as handle:
 charge_dist_cst=cst_data.get('charge_dist')
 distance=cst_data.get('distance')
 Wake_potential_cst=cst_data.get('Wake_potential_cst')
+Wake_potential_interfaces=cst_data.get('Wake_potential_interfaces')
+Wake_potential_testbeams=cst_data.get('Wake_potential_testbeams')
+WPx_cst=cst_data.get('WPx_cst')
+WPy_cst=cst_data.get('WPy_cst')
 s_cst=cst_data.get('s_cst')
 Z_cst=cst_data.get('Z_cst')
+Zx_cst=cst_data.get('Zx_cst')
+Zy_cst=cst_data.get('Zy_cst')
 freq_cst=cst_data.get('freq_cst')
 
-#--- Plot comparison
+#--- Plot transverse WP comparison with CST
 
 q=(1e-9)*1e12 # charge of the particle beam in pC
-fig4 = plt.figure(4, figsize=(6,4), dpi=200, tight_layout=True)
-ax=fig4.gca()
+fig40 = plt.figure(40, figsize=(6,4), dpi=200, tight_layout=True)
+ax=fig40.gca()
 ax.plot(s*1.0e3, Wake_potential, lw=1.2, color='orange', label='W_//(s) direct integration')
 ax.plot(s_cst*1e3, Wake_potential_cst, lw=1.3, color='black', ls='--', label='W_//(s) CST')
 ax.set(title='Longitudinal Wake potential',
         xlabel='s [mm]',
         ylabel='$W_{//}$ [V/pC]',
         xlim=(min(s*1.0e3), np.amin((np.max(s*1.0e3), np.max(s_cst*1.0e3))))
+        )
+ax.legend(loc='best')
+ax.grid(True, color='gray', linewidth=0.2)
+plt.show()
+
+
+#--- Plot longitudinal WP comparison with CST
+
+q=(1e-9)*1e12 # charge of the particle beam in pC
+fig4 = plt.figure(4, figsize=(6,4), dpi=200, tight_layout=True)
+ax=fig4.gca()
+ax.plot(s*1.0e3, Wake_potential_x, lw=1.2, color='g', label='Wx⊥[0,0](s)')
+ax.plot(s_cst*1.0e3, WPx_cst, lw=1.2, color='g', ls='--', label='Wx⊥[0,0](s) from CST')
+ax.plot(s*1.0e3, Wake_potential_y, lw=1.2, color='magenta', label='Wy⊥[0,0](s)')
+ax.plot(s_cst*1.0e3, WPy_cst, lw=1.2, color='magenta', ls='--', label='Wy⊥[0,0](s) from CST')
+ax.set(title='Transverse Wake potential W⊥(s)',
+        xlabel='s [mm]',
+        ylabel='$W_{//}$ [V/pC]',
+        xlim=(min(s*1.0e3), np.amin((np.max(s*1.0e3), np.max(s_cst*1.0e3)))),
+        ylim=(-0.04, 0.07)
         )
 ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)
@@ -401,4 +429,3 @@ ax.set(title='Longitudinal impedance Z(w) magnitude',
 ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)
 plt.show()
-'''

@@ -33,9 +33,9 @@ L_cavity = 30*unit
 # Define the mesh
 ##################################
 # mesh cells per direction
-nx = 55
-ny = 55
-nz = 100
+nx = 110
+ny = 110
+nz = 200
 
 # mesh bounds
 xmin = -0.55*w_cavity
@@ -91,7 +91,7 @@ flag_correct_div = True
 # (it is also interesting to try the CKC solver) by setting method='CKC'
 solver = picmi.ElectromagneticSolver(grid = grid,
                                      method = 'CKC',
-                                     cfl = 0.5,
+                                     cfl = 0.85,
                                      source_smoother = smoother,
                                      warp_l_correct_num_Cherenkov = False,
                                      warp_type_rz_depose = 0,
@@ -115,7 +115,7 @@ sim.step(1)
 ##################################
 # Setup the beam injection
 ##################################
-N=10**6
+N=10**7
 beam_layout = picmi.PseudoRandomLayout(n_macroparticles = N, seed = 3)
 
 sim.add_species(beam, layout=beam_layout,
@@ -217,8 +217,8 @@ if not os.path.exists(out_folder):
 
 
 #define the integration path x2, y2
-xtest=0.0   #Assumes x2,y2 of the test particle in 0,0
-ytest=0.0
+xtest=5.0   #Assumes x2,y2 of the test particle in 0,0
+ytest=5.0
 #---set up the vectors
 x=np.linspace(xmin, xmax, nx+1)
 y=np.linspace(ymin, ymax, ny+1)

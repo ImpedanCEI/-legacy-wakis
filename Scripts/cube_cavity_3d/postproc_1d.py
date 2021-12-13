@@ -20,7 +20,7 @@ import pickle as pk
 import h5py as h5py
 
 unit = 1e-3
-out_folder='out/'
+out_folder='out_10e7_refinedx2/'
 
 #------------------------------------#
 #            1D variables            #
@@ -65,6 +65,7 @@ xmax=max(x)
 ymin=min(y)
 ymax=max(y)
 
+'''
 #------------------------------------#
 #            3D variables            #
 #------------------------------------#
@@ -88,7 +89,7 @@ shapey=Ez_0.shape[1]
 shapez=Ez_0.shape[2] 
 
 print('Ez field is stored in matrices '+str(Ez_0.shape)+' in '+str(int(size_hf))+' datasets')
-'''
+
 #--- loop with countours of electric field
 plt.ion()
 for n in n_step:
@@ -108,7 +109,6 @@ for n in n_step:
         fig1.clf() 
 
 plt.close()
-
 '''
 
 #...................#
@@ -171,7 +171,7 @@ ax2.grid(True, color='gray', linewidth=0.2)
 plt.show()
 
 #--- Plot charge density for a certain timestep
-n=int(738)
+n=int(830)
 rho=np.transpose(np.array(rho_t))      #array to matrix (z,t)
 
 fig3 = plt.figure(3, figsize=(6,4), dpi=200, tight_layout=True)
@@ -213,17 +213,24 @@ for n in range(nt):
 # Compare with CST #
 #..................#
 
-#--- read cst out with pickle
+#--- read the cst dictionary
 with open('cst/cst_out.txt', 'rb') as handle:
-  data = pk.loads(handle.read())
-  print('stored variables')
-  print(data.keys())
+  cst_data = pk.loads(handle.read())
+  print('cst stored variables')
+  print(cst_data.keys())
 
-#--- retrieve the variables
-Ez_cst=data.get('Ez')
-t_cst=data.get('t')
-nz_cst=data.get('nz')
-nt_cst=data.get('nt')
+charge_dist_cst=cst_data.get('charge_dist')
+distance=cst_data.get('distance')
+Wake_potential_cst=cst_data.get('Wake_potential_cst')
+Wake_potential_interfaces=cst_data.get('Wake_potential_interfaces')
+Wake_potential_testbeams=cst_data.get('Wake_potential_testbeams')
+WPx_cst=cst_data.get('WPx_cst')
+WPy_cst=cst_data.get('WPy_cst')
+s_cst=cst_data.get('s_cst')
+Z_cst=cst_data.get('Z_cst')
+Zx_cst=cst_data.get('Zx_cst')
+Zy_cst=cst_data.get('Zy_cst')
+freq_cst=cst_data.get('freq_cst')
 
 #--- Plot Electric field at cavity center
 fig4 = plt.figure(4, figsize=(6,4), dpi=200, tight_layout=True)
@@ -285,6 +292,21 @@ ax5.set(title='Frequency of Electric field at cavity center',
 ax5.legend(loc='best')
 ax5.grid(True, color='gray', linewidth=0.2)
 ax5.grid(True, color='gray', linewidth=0.2)
+plt.show()
+
+#--- Plot charge density for a certain timestep
+n=int(738)
+rho=np.transpose(np.array(rho_t))      #array to matrix (z,t)
+
+fig30 = plt.figure(30, figsize=(6,4), dpi=200, tight_layout=True)
+ax=fig30.gca()
+ax.plot(np.array(z)*1.0e3, rho[:, n], lw=1.2, color='r', label='Charge density from Warp')
+ax.plot(s_cst*1.0e3, charge_dist_cst, lw=1.2, color='r', label='Charge density from CST')
+ax.set(title='Charge density in t='+str(round(t[n]*1.0e9,4))+' ns',
+        xlabel='s [mm]',
+        ylabel='$ rho $')
+ax.legend(loc='best')
+ax.grid(True, color='gray', linewidth=0.2)
 plt.show()
 '''
 
