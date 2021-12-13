@@ -29,7 +29,7 @@ beta=1.0 #TODO: obtain beta from Warp simulation
 #      Read data     #
 ######################
 
-out_folder='out_nt3000/'
+out_folder='out_10e7_refinedx2/'
 
 #------------------------------------#
 #            1D variables            #

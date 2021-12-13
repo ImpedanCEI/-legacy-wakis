@@ -88,7 +88,7 @@ shapey=Ez_0.shape[1]
 shapez=Ez_0.shape[2] 
 
 print('Ez field is stored in matrices '+str(Ez_0.shape)+' in '+str(int(size_hf))+' datasets')
-
+'''
 #--- loop with countours of electric field
 plt.ion()
 for n in n_step:
@@ -110,6 +110,7 @@ for n in n_step:
 plt.close()
 
 '''
+
 #...................#
 #     1D  Plots     #
 #...................#
@@ -182,7 +183,7 @@ ax3.set(title='Charge density in t='+str(round(t[n]*1.0e9,4))+' ns',
 ax3.legend(loc='best')
 ax3.grid(True, color='gray', linewidth=0.2)
 plt.show()
-'''
+
 '''
 #...................#
 #     1D  Movie     #

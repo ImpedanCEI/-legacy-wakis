@@ -36,7 +36,7 @@ c=sc.constants.c
 #      Read data     #
 ######################
 
-out_folder='out/'
+out_folder='out_nt1000/'
 
 #------------------------------------#
 #            1D variables            #
@@ -143,30 +143,27 @@ l1=(L_cavity/2.0)         #[m]
 l2=(L_cavity/2.0)         #[m] 
 b1=h_pipe/2.0             #[m]
 b2=h_pipe/2.0             #[m]
-# define the rectangle size (aperture = half the area)
-w_rect = w_pipe/2.0
-h_rect = h_pipe/2.0
-
 
 #--- initialize variables for the indirect integration
-
-phi_l1 = np.zeros((int((w_rect*2)/dh + 10 + 1), int((h_rect*2)/dh + 8 + 1), len(s)))  
-phi_l2 = np.zeros((int((w_rect*2)/dh + 10 + 1), int((h_rect*2)/dh + 8 + 1), len(s)))  
+w_rect = x[shapex//2+int(np.ceil((w_pipe)/dh))]/2.0 #added np.ceil to have the first point inside the pipe
+h_rect = y[shapey//2+int(np.ceil((h_pipe)/dh))]/2.0
+phi_l1 = np.zeros((int((w_rect*2)/dh + 10), int((h_rect*2)/dh + 8), len(s)))  
+phi_l2 = np.zeros((int((w_rect*2)/dh + 10), int((h_rect*2)/dh + 8), len(s)))  
 integral = np.zeros(len(s))  #integral of ez between -l1, l2
 t_s = np.zeros((nt, len(s)))
 Wake_potential=np.zeros_like(s)
 
-#--- interpolate Ez so nz == nt
+#--- interpolate Ez_1d so nz == nt
 z_interp=np.linspace(zmin, zmax, nt)
 Ez_interp=np.zeros((nt,nt))
 dz_interp=z_interp[2]-z_interp[1]
 n=0
 for n in range(nt):
-    Ez_interp_l1[:, n]=np.interp(z_interp, z, Ez[shapex//2, shapey//2, n])
+    Ez_interp[:, n]=np.interp(z_interp, z, Ez_1d[:, n])
 
-#--- obtain the derivatives
-Ez_dt=np.zeros((nt,nt))  #time derivative of Ez
-Ez_dz=np.zeros((nt,nt))  #z spatial derivative of Ez
+#--- obtain the derivatives from the 1d field Ez
+# Ez_dt=np.zeros((nt,nt))  #time derivative of Ez
+# Ez_dz=np.zeros((nt,nt))  #z spatial derivative of Ez
 # n=0
 # k=0
 # for n in range(nt-1):
@@ -174,13 +171,15 @@ Ez_dz=np.zeros((nt,nt))  #z spatial derivative of Ez
 #         Ez_dz[k,n]= (Ez_interp[k+1, n] - Ez_interp[k, n])/dz_interp
 #         Ez_dt[k,n]= (Ez_interp[k, n+1] - Ez_interp[k, n])/dt
 
-# find indexes for l1, l2 
-iz_l1=int((-l1-z_interp[0])/dz_interp)
-iz_l2=int((l2-z_interp[0])/dz_interp)
+# find indexes for l1, l2 for z and z_interp
+iz_l1=int(np.ceil((-l1-z[0])/dz))-1 #substract one to be inside the pipe
+iz_l2=int(np.ceil((l2-z[0])/dz))+1 #added one to be inside the pipe
+iz_interp_l1=int((-l1-z_interp[0])/dz_interp)
+iz_interp_l2=int((l2-z_interp[0])/dz_interp)
 
 # s loop -------------------------------------#                                                           
 
-for n in range(len(s)-1):    
+for n in range(len(s)):    
 
     #-----------------------#
     # first poisson z=(-l1) #
@@ -190,17 +189,27 @@ for n in range(len(s)-1):
 
     #--- obtain the rectangle size for -l1 
     # define the rectangle size (aperture = half the area)
-    w_rect = w_pipe/2.0
-    h_rect = h_pipe/2.0
+    w_rect = x[shapex//2+int(np.ceil((w_pipe)/dh))]/2.0 #added np.ceil to have the first point inside the pipe
+    h_rect = y[shapey//2+int(np.ceil((h_pipe)/dh))]/2.0
 
     # PyPIC function to declare the implicit function for the conductors (this acts as BCs)
     PyPIC_chamber = poly.polyg_cham_geom_object({'Vx' : np.array([w_rect, -w_rect, -w_rect, w_rect]),
                                                  'Vy': np.array([h_rect, h_rect, -h_rect, -h_rect]),
                                                  'x_sem_ellip_insc' : 0.99*w_rect, #important to add this
                                                  'y_sem_ellip_insc' : 0.99*h_rect})
+
+    # get indexes for x and y for the picFD solver 
+    # x direction is gridded with (w_rect*2)/dh + 10 ghost cells
+    # y direction is gridded with (h_rect*2)/dh + 8 ghost cells
+    ix=np.arange(shapex//2 - int((w_rect)/dh+5), shapex//2 + int((w_rect)/dh+5),1)
+    iy=np.arange(shapey//2 - int((h_rect)/dh+4), shapey//2 + int((w_rect)/dh+4),1)
+
     # solver object
     picFD = PIC_FD.FiniteDifferences_Staircase_SquareGrid(chamb = PyPIC_chamber, Dh = dh, sparse_solver = 'PyKLU')
     phi_l1[:, :, n] = np.zeros_like(picFD.rho) 
+    rho=np.zeros_like(picFD.rho) 
+    Ez_dt=np.zeros_like(picFD.rho) 
+    Ez_dz=np.zeros_like(picFD.rho) 
 
     if t_l1 > 0.0:
         # find t index for -l1 and s[n]
@@ -212,11 +221,11 @@ for n in range(len(s)-1):
         # store the 3D e field for this time and the previous time
         Ez_next=hf.get(dataset[it_l1+1])
         Ez=hf.get(dataset[it_l1])
-        for i in range(shapex):
-            for j in range(shapey):
+        for i in range(len(ix)):
+            for j in range(len(iy)):
                 # obtain the derivatives for each x, y in the transverse plane
-                Ez_dz[i,j]=(Ez[i, j, l1+1] - Ez[i, j, l1])/dz    #obtains the derivative around l1
-                Ez_dt[i,j]=(Ez_next[i, j, l1] - Ez[i,j,l1])/dt   #obtains the derivative around t_l1
+                Ez_dz[i,j]=(Ez[ix[i], iy[j], iz_l1+1] - Ez[ix[i], iy[j], iz_l1])/dz    #obtains the derivative around l1
+                Ez_dt[i,j]=(Ez_next[ix[i], iy[j], iz_l1] - Ez[ix[i], iy[j], iz_l1])/dt   #obtains the derivative around t_l1
                 # obtain rho for the transversal plane
                 rho[i,j] = (Ez_dt[i,j]/c - Ez_dz[i,j])           #this rho is evaluated at z=-l1, t=(s-l1)/c
 
@@ -230,19 +239,29 @@ for n in range(len(s)-1):
 
     t_l2=(l2+s[n])/c-zmin/c-t[0]+init_time
 
-    #--- obtain the rectangle size for l2 
+    #--- obtain the rectangle size for -l1 
     # define the rectangle size (aperture = half the area)
-    w_rect = w_pipe/2.0
-    h_rect = h_pipe/2.0
+    w_rect = x[shapex//2+int(np.ceil((w_pipe)/dh))]/2.0
+    h_rect = y[shapey//2+int(np.ceil((h_pipe)/dh))]/2.0
 
     # PyPIC function to declare the implicit function for the conductors (this acts as BCs)
     PyPIC_chamber = poly.polyg_cham_geom_object({'Vx' : np.array([w_rect, -w_rect, -w_rect, w_rect]),
                                                  'Vy': np.array([h_rect, h_rect, -h_rect, -h_rect]),
                                                  'x_sem_ellip_insc' : 0.99*w_rect, #important to add this
                                                  'y_sem_ellip_insc' : 0.99*h_rect})
+
+    # get indexes for x and y for the picFD solver 
+    # x direction is gridded with (w_rect*2)/dh + 10 ghost cells
+    # y direction is gridded with (h_rect*2)/dh + 8 ghost cells
+    ix=np.arange(shapex//2 - int((w_rect)/dh+5), shapex//2 + int((w_rect)/dh+5),1)
+    iy=np.arange(shapey//2 - int((h_rect)/dh+4), shapey//2 + int((w_rect)/dh+4),1)
+
     # solver object
     picFD = PIC_FD.FiniteDifferences_Staircase_SquareGrid(chamb = PyPIC_chamber, Dh = dh, sparse_solver = 'PyKLU')
     phi_l2[:, :, n] = np.zeros_like(picFD.rho) 
+    rho=np.zeros_like(picFD.rho)
+    Ez_dt=np.zeros_like(picFD.rho) 
+    Ez_dz=np.zeros_like(picFD.rho) 
 
     if t_l2>0.0:
 
@@ -254,11 +273,11 @@ for n in range(len(s)-1):
         # store the 3D e field for this time and the previous time
         Ez_next=hf.get(dataset[it_l2+1])
         Ez=hf.get(dataset[it_l2])
-        for i in range(shapex):
-            for j in range(shapey):
+        for i in range(len(ix)):
+            for j in range(len(iy)):
                 # obtain the derivatives for each x, y in the transverse plane
-                Ez_dz[i,j]=(Ez[i, j, l2+1] - Ez[i, j, l2])/dz    #obtains the derivative around l1
-                Ez_dt[i,j]=(Ez_next[i, j, l2] - Ez[i,j,l2])/dt   #obtains the derivative around t_l1
+                Ez_dz[i,j]=(Ez[ix[i], iy[j], iz_l2+1] - Ez[ix[i], iy[j], iz_l2])/dz    #obtains the derivative around l1
+                Ez_dt[i,j]=(Ez_next[ix[i], iy[j], iz_l2] - Ez[ix[i], iy[j],iz_l2])/dt   #obtains the derivative around t_l1
                 # obtain rho for the transversal plane
                 rho[i,j] = (Ez_dt[i,j]/c - Ez_dz[i,j])          #this rho is evaluated at z=-l1, t=(s-l1)/c
 
@@ -271,9 +290,9 @@ for n in range(len(s)-1):
     # integral between -l1 and l2 #
     #-----------------------------#
 
-    #integral of (Ez(xtest, ytest, z, t=(s+z)/c))dz
+    #integral of (Ez(xtest, ytest, z, t=(s+z)/c))dz using the interpolated 1d E field
     k=0
-    for k in range(iz_l1, iz_l2):
+    for k in range(iz_interp_l1, iz_interp_l2):
         t_s[k,n]=(z_interp[k]+s[n])/c-zmin/c-t[0]+init_time
 
         if t_s[k,n]>0.0:
@@ -292,11 +311,11 @@ for n in range(len(s)-1):
     # +info see: class PyPIC_Scatter_Gather(object):
     iy_b1=int((b1-picFD.bias_y)/dh)     
     iy_b2=int((b2-picFD.bias_y)/dh)
-    ixtest_phi=int((xtest-picFD.bias_x)/dh)+1
-    iytest_phi=int((ytest-picFD.bias_y)/dh)+1
+    ixtest_phi=len(picFD.xg)//2
+    iytest_phi=len(picFD.yg)//2
 
     phi_b1=phi_l1[ixtest_phi, iy_b1, n] #phi(x=0, y=b1, s[n])
-    phi_b2=phi_l2[ixtest_phi, iy_b1, n] #phi(x=0, y=b1, s[n])
+    phi_b2=phi_l2[ixtest_phi, iy_b2, n] #phi(x=0, y=b2, s[n])
 
     Wake_potential[n]=(phi_b1-phi_l1[ixtest_phi, iytest_phi, n])-integral[n]+(phi_l2[ixtest_phi, iytest_phi, n]-phi_b2)
 

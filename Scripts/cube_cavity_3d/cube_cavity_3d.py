@@ -203,10 +203,11 @@ if not os.path.exists(out_folder):
     os.mkdir(out_folder)
 
 #create h5 files overwriting previous ones
-if os.path.exists(out_folder+'Ez.h5'):
-    os.remove(out_folder+'Ez.h5')
+hf_name='Ez_coarsed.h5'
+if os.path.exists(out_folder+hf_name):
+    os.remove(out_folder+hf_name)
 
-hf = h5py.File(out_folder+'Ez.h5', 'w')
+hf = h5py.File(out_folder+hf_name, 'w')
 
 #define the integration path x2, y2
 xtest=0.0   #Assumes x2,y2 of the test particle in 0,0

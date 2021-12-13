@@ -20,7 +20,7 @@ import pickle as pk
 unit = 1e-3
 
 #--- read the dictionary
-with open('out_CKC/out.txt', 'rb') as handle:
+with open('out/out.txt', 'rb') as handle:
   data = pk.loads(handle.read())
   print('stored variables')
   print(data.keys())
@@ -178,16 +178,16 @@ plt.show()
 fig40 = plt.figure(40, figsize=(6,4), dpi=200, tight_layout=True)
 ax=fig40.gca()
 ax.plot(t*1.0e9, Ez[int(nz/2), :], lw=1.2, color='g', label='Ez(0,0,0) warp')
-ax.plot(t*1.0e9, Ez[int(iz_l1), :], lw=1.2, color='r', label='Ez(0,0,l1) warp')
-ax.plot(t*1.0e9, Ez[int(iz_l2), :], lw=1.2, color='b', label='Ez(0,0,l2) warp')
-ax.plot(np.array(t_cst)*1.0e9, Ez_cst[int(nz_cst/2), :], lw=0.8, ls='--', color='g', label='Ez(0,0,0) CST')
-ax.plot(np.array(t_cst)*1.0e9, Ez_cst[int(iz_l1), :], lw=0.8, ls='--', color='r', label='Ez(0,0,l1) CST')
-ax.plot(np.array(t_cst)*1.0e9, Ez_cst[int(iz_l2), :], lw=0.8, ls='--', color='b', label='Ez(0,0,l2) CST')
+#ax.plot(t*1.0e9, Ez[int(iz_l1), :], lw=1.2, color='r', label='Ez(0,0,l1) warp')
+#ax.plot(t*1.0e9, Ez[int(iz_l2), :], lw=1.2, color='b', label='Ez(0,0,l2) warp')
+ax.plot(np.array(t_cst)*1.0e9, Ez_cst[int(nz_cst/2), :], lw=0.8, ls='--', color='black', label='Ez(0,0,0) CST')
+#ax.plot(np.array(t_cst)*1.0e9, Ez_cst[int(iz_l1), :], lw=0.8, ls='--', color='r', label='Ez(0,0,l1) CST')
+#ax.plot(np.array(t_cst)*1.0e9, Ez_cst[int(iz_l2), :], lw=0.8, ls='--', color='b', label='Ez(0,0,l2) CST')
 ax.set(title='Electric field at cavity center and discontinuities',
         xlabel='t [ns]',
         ylabel='$E [V/m]$',         
-        ylim=(np.min(Ez[int(nz/2), :])*1.1,np.max(Ez[int(nz/2), :])*1.1),
-        xlim=(0,np.max(t*1.0e9))
+        ylim=(np.min(Ez_cst[int(nz_cst/2), :])*1.1,np.max(Ez_cst[int(nz_cst/2), :])*1.1),
+        xlim=(0,np.max(t_cst*1.0e9))
                 )
 ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)

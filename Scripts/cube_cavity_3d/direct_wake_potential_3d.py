@@ -140,7 +140,7 @@ for i in range(shapex):
         for n in range(nt):
             Ez=hf.get(dataset[n])
             if not np.any(Ez[i,j,:]): #if Ez=0 skip the interpolation
-                break
+                pass
             else:
                 Ez_interp[:, n]=np.interp(z_interp, z , Ez[i,j,:])
 
@@ -150,7 +150,7 @@ for i in range(shapex):
 
         # s loop -------------------------------------#                                                           
         n=0
-        for n in range(len(s)-1):    
+        for n in range(len(s)):    
 
             #--------------------------------#
             # integral between zmin and zmax #
@@ -207,7 +207,7 @@ hf.close()
 
 #--- Save the 1D data 
 data = { 'Wake_potential' : Wake_potential, 
-         's' : s
+         's' : s,
          'k_factor' : k_factor,
          'Impedance' : Z,
          'frequency' : Z_freq

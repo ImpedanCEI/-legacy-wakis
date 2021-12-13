@@ -45,43 +45,6 @@ t=np.array(t)*1.0e-9   # in s
 #close file
 f.close()
 
-# Plot electric field
-
-fig1 = plt.figure(10, figsize=(6,4), dpi=200, tight_layout=True)
-ax1=fig1.gca()
-ax1.plot(t*1.0e9, Ez, lw=1.2, color='g', label='Ez CST')
-ax1.set(title='Electric field at cavity center',
-        xlabel='t [ns]',
-        ylabel='$E [V/m]$',         #ylim=(-8.0e4,8.0e4)
-        )
-ax1.legend(loc='best')
-ax1.grid(True, color='gray', linewidth=0.2)
-plt.show()
-
-# Plot frequency
-
-freq=np.fft.fftfreq(len(t[300:]), d=(t[1]-t[0])*1.0e9)
-Ez_fft=np.fft.fft(Ez[300:])
-Amp=np.abs(Ez_fft)
-Amp_max=np.argmax(Amp)
-
-fig2 = plt.figure(10, figsize=(6,4), dpi=200, tight_layout=True)
-ax2=fig2.gca()
-ax2.plot(freq[Amp_max], Amp[Amp_max], marker='o', markersize=3.0, color='pink')
-ax2.annotate(str(round(freq[Amp_max],2))+ ' GHz', xy=(freq[Amp_max],Amp[Amp_max]), xytext=(1,1), textcoords='offset points', color='grey') 
-#arrowprops=dict(color='blue', shrink=1.0, headwidth=4, frac=1.0)
-ax2.plot(freq, Amp, lw=1, color='r', label='fft CST')
-#ax2.plot(freq, Amp.imag, lw=1.2, color='r', label='Imaginary')
-ax2.set(title='Frequency of Electric field at cavity center',
-        xlabel='f [GHz]',
-        ylabel='Amplitude [dB]',   
-        ylim=(0,np.max(Amp)*1.3),
-        xlim=(0,np.max(freq))      
-        )
-ax2.legend(loc='best')
-ax2.grid(True, color='gray', linewidth=0.2)
-plt.show()
-
 #--- read all Ez files
 
 Ez_t=np.zeros((len(glob.glob("Ez/*.txt")),len(t)))
@@ -132,11 +95,15 @@ f.close()
 #--- read wake potential obtained from CST
 
 Wake_potential_cst=[]
+Wake_potential_interfaces=[]
+Wake_potential_testbeams=[]
+WPx=[]
+WPy=[]
 s_cst=[]
 i=0
-
-#fname='Wake_potential' #default direct WP
-fname='indirect_WP_3000'
+# Longitudinal wake potential
+# fname='Wake_potential' #default direct WP
+fname='WPz'
 with open(fname +'.txt') as f:
     for line in f:
         i+=1
@@ -153,38 +120,86 @@ s_cst=np.array(s_cst)*1.0e-3  # in [m]
 #close file
 f.close()
 
-# Plot wake potential and charge distribution
+# indirect WP with the indirect interfaces method
+fname='indirect_interf_WP'
+i=0
+with open(fname +'.txt') as f:
+    for line in f:
+        i+=1
+        columns = line.split()
 
-fig2 = plt.figure(20, figsize=(6,4), dpi=200, tight_layout=True)
-ax=fig2.gca()
-ax.plot(s_cst*1.0e3, Wake_potential_cst, lw=1.2, color='orange', label='W// from CST')
-ax.set(title='Longitudinal wake potential from CST',
-        xlabel='s [mm]',
-        ylabel='W//(s) [V/pC]',         #ylim=(-8.0e4,8.0e4)
-        )
-ax.legend(loc='best')
-ax.grid(True, color='gray', linewidth=0.2)
-plt.show()
+        if i>1 and len(columns)>1:
 
-fig3 = plt.figure(30, figsize=(6,4), dpi=200, tight_layout=True)
-ax=fig3.gca()
-ax.plot(distance*1.0e3, charge_dist, lw=1.2, color='r', label='$\lambda$ from CST')
-ax.set(title='Charge distribution from CST',
-        xlabel='distance [mm]',
-        ylabel='$\lambda$(s) [C/m]',         #ylim=(-8.0e4,8.0e4)
-        )
-ax.legend(loc='best')
-ax.grid(True, color='gray', linewidth=0.2)
-plt.show()
+            Wake_potential_interfaces.append(float(columns[1]))
+
+Wake_potential_interfaces=np.array(Wake_potential_interfaces) # in V/pC
+
+#close file
+f.close()
+
+# indirect WP with the indirect testbeams method
+fname='indirect_test_WP'
+i=0
+with open(fname +'.txt') as f:
+    for line in f:
+        i+=1
+        columns = line.split()
+
+        if i>1 and len(columns)>1:
+
+            Wake_potential_testbeams.append(float(columns[1]))
+
+Wake_potential_testbeams=np.array(Wake_potential_testbeams) # in V/pC
+
+#close file
+f.close()
+
+
+# Transverse wake potential
+fname='WPx'
+i=0
+with open(fname +'.txt') as f:
+    for line in f:
+        i+=1
+        columns = line.split()
+
+        if i>1 and len(columns)>1:
+
+            WPx.append(float(columns[1]))
+
+WPx=np.array(WPx) # in V/pC
+
+#close file
+f.close()
+
+fname='WPy'
+i=0
+with open(fname +'.txt') as f:
+    for line in f:
+        i+=1
+        columns = line.split()
+
+        if i>1 and len(columns)>1:
+
+            WPy.append(float(columns[1]))
+
+WPy=np.array(WPy) # in V/pC
+
+#close file
+f.close()
+
 
 #--- read impedance obtained from CST
 
 Z_cst=[]
+Zx=[]
+Zy=[]
 freq_cst=[]
-i=0
 
-#fname='Impedance'  #default direct impedance
-fname='indirect_impedance_3000'
+# Longitudinal impedance
+# fname='Impedance'  #default direct impedance
+fname='Zz'
+i=0
 with open(fname +'.txt') as f:
     for line in f:
         i+=1
@@ -201,13 +216,131 @@ freq_cst=np.array(freq_cst)*1e9  # in [Hz]
 #close file
 f.close()
 
+# Transverse impedance
+fname='Zx'
+i=0
+with open(fname +'.txt') as f:
+    for line in f:
+        i+=1
+        columns = line.split()
+
+        if i>1 and len(columns)>1:
+
+            Zx.append(float(columns[1]))
+
+Zx=np.array(Zx) # in V/pC
+
+#close file
+f.close()
+
+fname='Zy'
+i=0
+with open(fname +'.txt') as f:
+    for line in f:
+        i+=1
+        columns = line.split()
+
+        if i>1 and len(columns)>1:
+
+            Zy.append(float(columns[1]))
+
+Zy=np.array(Zy) # in V/pC
+
+#close file
+f.close()
+
+#...................#
+#     1D  Plots     #
+#...................#
+
+#--- 1 Ez file
+# Plot electric field
+
+fig1 = plt.figure(10, figsize=(6,4), dpi=200, tight_layout=True)
+ax1=fig1.gca()
+ax1.plot(t*1.0e9, Ez, lw=1.2, color='g', label='Ez CST')
+ax1.set(title='Electric field at cavity center',
+        xlabel='t [ns]',
+        ylabel='$E [V/m]$',         #ylim=(-8.0e4,8.0e4)
+        )
+ax1.legend(loc='best')
+ax1.grid(True, color='gray', linewidth=0.2)
+plt.show()
+
+# Plot frequency
+
+freq=np.fft.fftfreq(len(t[300:]), d=(t[1]-t[0])*1.0e9)
+Ez_fft=np.fft.fft(Ez[300:])
+Amp=np.abs(Ez_fft)
+Amp_max=np.argmax(Amp)
+
+fig2 = plt.figure(10, figsize=(6,4), dpi=200, tight_layout=True)
+ax2=fig2.gca()
+ax2.plot(freq[Amp_max], Amp[Amp_max], marker='o', markersize=3.0, color='pink')
+ax2.annotate(str(round(freq[Amp_max],2))+ ' GHz', xy=(freq[Amp_max],Amp[Amp_max]), xytext=(1,1), textcoords='offset points', color='grey') 
+#arrowprops=dict(color='blue', shrink=1.0, headwidth=4, frac=1.0)
+ax2.plot(freq, Amp, lw=1, color='r', label='fft CST')
+#ax2.plot(freq, Amp.imag, lw=1.2, color='r', label='Imaginary')
+ax2.set(title='Frequency of Electric field at cavity center',
+        xlabel='f [GHz]',
+        ylabel='Amplitude [dB]',   
+        ylim=(0,np.max(Amp)*1.3),
+        xlim=(0,np.max(freq))      
+        )
+ax2.legend(loc='best')
+ax2.grid(True, color='gray', linewidth=0.2)
+plt.show()
+
+#--- Wake_potential and Impedance
+
+# Plot wake potential and charge distribution
+
+# Longitudinal wake potentials
+fig2 = plt.figure(20, figsize=(6,4), dpi=200, tight_layout=True)
+ax=fig2.gca()
+ax.plot(s_cst*1.0e3, Wake_potential_cst, lw=1.2, color='orange', label='Direct W// from CST')
+ax.plot(s_cst*1.0e3, Wake_potential_interfaces, lw=1.2, color='magenta', label='Indirect interfaces W// from CST')
+ax.plot(s_cst*1.0e3, Wake_potential_testbeams, lw=1.2, color='cyan', label='Indirect testbeams W// from CST')
+ax.set(title='Longitudinal wake potential from CST',
+        xlabel='s [mm]',
+        ylabel='W//(s) [V/pC]',         #ylim=(-8.0e4,8.0e4)
+        )
+ax.legend(loc='best')
+ax.grid(True, color='gray', linewidth=0.2)
+plt.show()
+
+# Transverse wake potentials
+fig3 = plt.figure(30, figsize=(6,4), dpi=200, tight_layout=True)
+ax=fig3.gca()
+ax.plot(s_cst*1.0e3, WPx, lw=1.2, color='green', label='Transverse W⊥,x from CST')
+ax.plot(s_cst*1.0e3, WPx, lw=1.2, color='red', label='Transverse W⊥,y from CST')
+ax.set(title='Transverse wake potential from CST',
+        xlabel='s [mm]',
+        ylabel='W⊥(s) [V/pC]',         #ylim=(-8.0e4,8.0e4)
+        )
+ax.legend(loc='best')
+ax.grid(True, color='gray', linewidth=0.2)
+plt.show()
+
+# charge distribution
+fig5 = plt.figure(50, figsize=(6,4), dpi=200, tight_layout=True)
+ax=fig5.gca()
+ax.plot(distance*1.0e3, charge_dist, lw=1.2, color='r', label='$\lambda$ from CST')
+ax.set(title='Charge distribution from CST',
+        xlabel='distance [mm]',
+        ylabel='$\lambda$(s) [C/m]',         #ylim=(-8.0e4,8.0e4)
+        )
+ax.legend(loc='best')
+ax.grid(True, color='gray', linewidth=0.2)
+plt.show()
+
 # Plot impedance and maximum frequency
 ifreq_max=np.argmax(Z_cst)
 fig4 = plt.figure(40, figsize=(6,4), dpi=200, tight_layout=True)
 ax=fig4.gca()
-ax.plot(freq_cst[ifreq_max]*1e-9, Z_cst[ifreq_max], marker='o', markersize=3.0, color='pink')
-ax.annotate(str(round(freq_cst[ifreq_max],2))+ ' GHz', xy=(freq_cst[ifreq_max],Z_cst[ifreq_max]), xytext=(-10,2), textcoords='offset points', color='grey') 
-ax.plot(freq_cst*1.0e-9, Z_cst, lw=1.2, color='red', label='W// from CST')
+ax.plot(freq_cst[ifreq_max]*1e-9, Z_cst[ifreq_max], marker='o', markersize=4.0, color='pink')
+ax.annotate(str(round(freq_cst[ifreq_max]*1e-9,2))+ ' GHz', xy=(freq_cst[ifreq_max]*1e-9,Z_cst[ifreq_max]), xytext=(1,1), textcoords='offset points', color='red') 
+ax.plot(freq_cst*1.0e-9, Z_cst, lw=1.2, color='red', label='Z// from CST')
 ax.set(title='Longitudinal impedance Z from CST',
         xlabel='frequency [GHz]',
         ylabel='Z//(s) [Ohm]',         #ylim=(-8.0e4,8.0e4)
@@ -215,6 +348,10 @@ ax.set(title='Longitudinal impedance Z from CST',
 ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)
 plt.show()
+
+#------------------------------------#
+#        Create cst_out file         #
+#------------------------------------#
 
 #--- declare aux variables from CST logfile info
 unit=1e-3
@@ -268,8 +405,14 @@ data = { 'Ez' : Ez_t, #shape = (k, len(t))
          'charge_dist' : charge_dist, # [C/m]
          'distance' : distance, # [m]
          'Wake_potential_cst' : Wake_potential_cst, # [V/pC]
+         'Wake_potential_interfaces' : Wake_potential_interfaces, 
+         'Wake_potential_testbeams': Wake_potential_testbeams, 
+         'WPx_cst' : WPx,
+         'WPy_cst' : WPy,
          's_cst' : s_cst, # [m]
          'Z_cst' : Z_cst, # [Ohm]
+         'Zx_cst' : Zx,
+         'Zy_cst' : Zy,
          'freq_cst' : freq_cst, # [Hz]
          'x' : x,
          'y' : y,
