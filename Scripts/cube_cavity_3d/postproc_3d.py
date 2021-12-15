@@ -20,7 +20,7 @@ import pickle as pk
 import h5py as h5py
 
 unit = 1e-3
-out_folder='out/'
+out_folder='out_nt1000/'
 
 #------------------------------------#
 #            1D variables            #

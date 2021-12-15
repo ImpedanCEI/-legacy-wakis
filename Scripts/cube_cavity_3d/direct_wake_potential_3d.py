@@ -72,14 +72,17 @@ xmin=min(x)
 xmax=max(x)
 ymin=min(y)
 ymax=max(y)
-
+dx=x[2]-x[1]
+dy=y[2]-y[1]
+ixtest=int((xtest-x[0])/dx)
+iytest=int((ytest-y[0])/dy)
 
 #------------------------------------#
 #            3D variables            #
 #------------------------------------#
 
 #--- read the h5 file
-hf = h5py.File(out_folder+'Ez.h5', 'r')
+hf = h5py.File(out_folder+'Ez_xtest_ytest.h5', 'r')
 print('reading the h5 file '+ out_folder +'Ez.h5')
 print('size of the file: '+str(round((os.path.getsize(out_folder+'Ez.h5')/10**9),2))+' Gb')
 #get number of datasets
@@ -133,13 +136,13 @@ Ez_interp=np.zeros((nt,nt))
 # initialize wake potential matrix
 Wake_potential_3d=np.zeros((shapex,shapey,len(s)))
 
-for i in range(shapex):
+for i in range(shapex): #field is stored around (xtest,ytest) selected by the user 
     for j in range(shapey):
 
         n=0
         for n in range(nt):
             Ez=hf.get(dataset[n])
-            if not np.any(Ez[i,j,:]): #if Ez=0 skip the interpolation
+            if not np.any(Ez[i,j,:]): #if Ez=0 skip the interpolation to save comp time
                 pass
             else:
                 Ez_interp[:, n]=np.interp(z_interp, z , Ez[i,j,:])
@@ -177,7 +180,7 @@ t1 = time.time()
 totalt = t1-t0
 print('Calculation terminated in %ds' %totalt)
 
-#--- plot wake potential in different locations
+#--- plot longitudinal wake potential in different locations
 
 fig1 = plt.figure(1, figsize=(6,4), dpi=200, tight_layout=True)
 ax=fig1.gca()
@@ -277,6 +280,28 @@ ax.set(title='Longitudinal impedance Z(w) magnitude',
         ylabel='Z [Ohm]',   
         ylim=(0.,np.max(Z)*1.2),
         xlim=(0.,np.max(Z_freq))      
+        )
+ax.legend(loc='best')
+ax.grid(True, color='gray', linewidth=0.2)
+plt.show()
+
+#-----------------------#
+#      Obtain W⊥(s)     #
+#-----------------------#
+
+# Gradient in the transverse plane is obtained using centered derivatives
+Transverse_wake_potential_x=-((Wake_potential_3d[0,1,:]+Wake_potential_3d[1,j,:]+Wake_potential_3d[2,1,:])/(2.*dx)) 
+Transverse_wake_potential_y=-((Wake_potential_3d[1,0,:]+Wake_potential_3d[1,1,:]+Wake_potential_3d[1,2,:])/(2.*dy))
+
+#--- plot transverse wake potential in different locations
+
+fig3 = plt.figure(3, figsize=(6,4), dpi=200, tight_layout=True)
+ax=fig3.gca()
+ax.plot(s*1.0e3, Transverse_wake_potential_y, lw=1.2, color='pink', label='Wy_⊥[0,0](s)')
+ax.plot(s*1.0e3, Transverse_wake_potential_x, lw=1.2, color='green', label='Wx_⊥[0,0](s)')
+ax.set(title='Transverse Wake potential',
+        xlabel='s [mm]',
+        ylabel='W_⊥ [V/pC]',
         )
 ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)
