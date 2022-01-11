@@ -1,4 +1,4 @@
-# Warp Basics
+# PyWake
 
 In this repository aims to develop a Wakefield solver for impedance calculations, using outpu fields of Warp simulations. The results will be benchmarked with CST simulations.
 
