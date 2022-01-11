@@ -29,7 +29,7 @@ Ez=[]
 t=[]
 i=0 
 
-with open('Ez/'+fname+'.txt') as f:
+with open('data/Ez/'+fname+'.txt') as f:
     for line in f:
         i+=1
         columns = line.split()
@@ -84,11 +84,11 @@ plt.show()
 
 #--- read all Ez files
 
-Ez_t=np.zeros((len(glob.glob("Ez/*.txt")),len(t)))
+Ez_t=np.zeros((len(glob.glob("data/Ez/*.txt")),len(t)))
 k=0
 i=0
 
-for file in sorted(glob.glob("Ez/*.txt")):
+for file in sorted(glob.glob("data/Ez/*.txt")):
     print('Scanning file '+ file)
     with open(file) as f:
         for line in f:
@@ -113,7 +113,7 @@ charge_dist=[]
 distance=[]
 i=0
 
-with open('lambda/'+fname+'.txt') as f:
+with open('data/lambda/'+fname+'.txt') as f:
     for line in f:
         i+=1
         columns = line.split()
@@ -137,7 +137,7 @@ i=0
 
 #fname='Wake_potential' #default direct WP
 fname='indirect_WP_3000'
-with open(fname +'.txt') as f:
+with open('data/wakepotential/'+fname +'.txt') as f:
     for line in f:
         i+=1
         columns = line.split()
@@ -185,7 +185,7 @@ i=0
 
 #fname='Impedance'  #default direct impedance
 fname='indirect_impedance_3000'
-with open(fname +'.txt') as f:
+with open('data/impedance/'+fname +'.txt') as f:
     for line in f:
         i+=1
         columns = line.split()
