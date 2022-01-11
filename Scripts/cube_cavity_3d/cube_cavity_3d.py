@@ -203,15 +203,15 @@ if not os.path.exists(out_folder):
     os.mkdir(out_folder)
 
 #create h5 files overwriting previous ones
-hf_name='Ez_xtest_ytest.h5'
+hf_name='Ez.h5'
 if os.path.exists(out_folder+hf_name):
     os.remove(out_folder+hf_name)
 
 hf = h5py.File(out_folder+hf_name, 'w')
 
 #define the integration path x2, y2
-xtest=0.0*1e-3   #Assumes x2,y2 of the test particle in 0,0
-ytest=0.0*1e-3
+xtest=0.0*unit   #Assumes x2,y2 of the test particle in 0,0
+ytest=0.0*unit
 #---set up the vectors
 x=np.linspace(xmin, xmax, nx+1)
 y=np.linspace(ymin, ymax, ny+1)

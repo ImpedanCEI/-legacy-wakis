@@ -136,7 +136,7 @@ t_offs = -5.332370636221942e-10   #like CST (-160 mm)
 n_bunches = 1
 
 # beam energy
-beam_gamma = 10000. #increase to decrease space charge
+beam_gamma = 479. #increase to decrease space charge
 beam_uz = beam_gamma*picmi.constants.c
 
 # macroparticle info
@@ -196,20 +196,6 @@ rho_t=[]
 t=[]
 dt=[]
 
-#create output directories for images
-images_folder='images/'
-if not os.path.exists(images_folder):
-    os.mkdir(images_folder)
-images_diry = images_folder+'Ey/'
-if not os.path.exists(images_diry):
-    os.mkdir(images_diry)
-images_dirx = images_folder+'Ex/'
-if not os.path.exists(images_dirx):
-    os.mkdir(images_dirx)
-images_dirz = images_folder+'Ez/'
-if not os.path.exists(images_dirz):
-    os.mkdir(images_dirz)
-
 #create output directories for txt
 out_folder='out/'
 if not os.path.exists(out_folder):
@@ -217,8 +203,8 @@ if not os.path.exists(out_folder):
 
 
 #define the integration path x2, y2
-xtest=0.0*1e-3   #Assumes x2,y2 of the test particle in 0,0
-ytest=0.0*1e-3
+xtest=5.0*unit   #Assumes x2,y2 of the test particle in 0,0
+ytest=0.0*unit
 #---set up the vectors
 x=np.linspace(xmin, xmax, nx+1)
 y=np.linspace(ymin, ymax, ny+1)
@@ -227,8 +213,8 @@ dx=x[2]-x[1]
 dy=y[2]-y[1]
 dz=z[2]-z[1]
 #---search for the index
-ixtest=int((xtest-x[0])/dx)
-iytest=int((ytest-y[0])/dy)
+ixtest=int((xtest-x[0])/dx)+1 #the +1 gives the correct cell
+iytest=int((ytest-y[0])/dy)+1
 
 #-------------#                             
 #  time loop  #
@@ -273,51 +259,6 @@ for n_step in range(tot_nsteps):
         #append the charge density at (ixtest,iytest,z)
         rho_t.append(rho[ixtest, iytest, :]) #1D vector of len=tot_nsteps*nz
 
-        #store the E field at particle position for each timestep [TODO]
-        #beam.wspecies.getex() only  while there is beam inside the cavity
-
-        #2D plots of the electric field
-
-        '''
-        if n_step % 10 == 0:
-            #Ez - x cut plot
-            fig= plt.figure(1)
-            ax=fig.gca()
-            im=ax.imshow(em.gatherez()[int(ny/2),:,:], vmin=-2e6, vmax=2e6, extent=[zmin, zmax, ymin, ymax], cmap='jet')
-            ax.set(title='t = ' + str(picmi.warp.top.time) + ' s',
-               xlabel='z    [m]',
-               ylabel='y    [m]',
-               xlim=[xmin,xmax],
-               ylim=[ymin,ymax])
-            plt.colorbar(im, label = 'Ez    [V/m]')
-            plt.tight_layout()
-            plt.savefig(images_dirz + 'Ez_' + str(n_step) + '.png')
-            plt.clf() 
-        
-            #Ey - x cut plot
-            fig = plt.figure()
-            plt.imshow(em.gatherey()[int(ny/2),:,:], vmin=-2e6, vmax=2e6, extent=[zmin, zmax, ymin, ymax])
-            plt.xlabel('z    [m]')
-            plt.ylabel('y    [m]')
-            plt.colorbar(label = 'Ey    [V/m]')
-            plt.title('t = ' + str(picmi.warp.top.time) + ' s')
-            plt.tight_layout()
-            plt.jet()
-            plt.savefig(images_diry + 'Ey_' + str(n_step) + '.png')
-            plt.clf() 
-              
-            #Ex - z cut plot
-            fig2=plt.figure()
-            plt.imshow(em.gatherex()[:,:,int(nz/2)], vmin=-2e6, vmax=2e6, extent=[xmin, xmax, ymin, ymax])
-            plt.xlabel('x    [m]')
-            plt.ylabel('y    [m]')
-            plt.colorbar(label = 'Ex    [V/m]')
-            plt.title('t = ' + str(picmi.warp.top.time) + ' s')
-            plt.tight_layout()
-            plt.jet()
-            plt.savefig(images_dirx + 'Ex_' + str(n_step) + '.png')
-            plt.clf()
-            '''
 
 #--------------------#                             
 #  end of time loop  #

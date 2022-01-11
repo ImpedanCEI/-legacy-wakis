@@ -268,16 +268,17 @@ for n in range(len(s)):
         # find t index for l2 and s[n]
         it_l2=int(t_l2/dt)
         # define the left side of the laplacian (driving term rho = 1/c*dEz/dt-dEz/dz)
-        # [TODO: use a higer order method for the derivatives]
+        # Using a left-sided second order in z and central differences in t for the derivatives
 
-        # store the 3D e field for this time and the previous time
-        Ez_next=hf.get(dataset[it_l2+1])
+        # store the 3D e field for this time and the previous time. 
+        Ez_prev=hf.get(dataset[it_l2-1])
         Ez=hf.get(dataset[it_l2])
+        Ez_next=hf.get(dataset[it_l2+1])
         for i in range(len(ix)):
             for j in range(len(iy)):
                 # obtain the derivatives for each x, y in the transverse plane
-                Ez_dz[i,j]=(Ez[ix[i], iy[j], iz_l2+1] - Ez[ix[i], iy[j], iz_l2])/dz    #obtains the derivative around l1
-                Ez_dt[i,j]=(Ez_next[ix[i], iy[j], iz_l2] - Ez[ix[i], iy[j],iz_l2])/dt   #obtains the derivative around t_l1
+                Ez_dz[i,j]=(3.*Ez[ix[i], iy[j], iz_l2] - 4.*Ez[ix[i], iy[j], iz_l2-1]+ Ez[ix[i], iy[j], iz_l2-2])/(2.*dz)    #obtains the derivative around l1
+                Ez_dt[i,j]=(Ez_next[ix[i], iy[j], iz_l2] - Ez_prev[ix[i], iy[j],iz_l2])/(2.*dt)   #obtains the derivative around t_l1
                 # obtain rho for the transversal plane
                 rho[i,j] = (Ez_dt[i,j]/c - Ez_dz[i,j])          #this rho is evaluated at z=-l1, t=(s-l1)/c
 

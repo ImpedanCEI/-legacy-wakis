@@ -20,7 +20,7 @@ import pickle as pk
 import h5py as h5py
 
 unit = 1e-3
-out_folder='out_10e7_refinedx2/'
+out_folder='out_gamma10000/'
 
 #------------------------------------#
 #            1D variables            #
@@ -171,7 +171,7 @@ ax2.grid(True, color='gray', linewidth=0.2)
 plt.show()
 
 #--- Plot charge density for a certain timestep
-n=int(830)
+n=int(550)
 rho=np.transpose(np.array(rho_t))      #array to matrix (z,t)
 
 fig3 = plt.figure(3, figsize=(6,4), dpi=200, tight_layout=True)
@@ -206,9 +206,9 @@ for n in range(nt):
         fig2.canvas.draw()
         fig2.canvas.flush_events()
         fig2.clf()
-'''
 
 '''
+
 #..................#
 # Compare with CST #
 #..................#
@@ -219,7 +219,12 @@ with open('cst/cst_out.txt', 'rb') as handle:
   print('cst stored variables')
   print(cst_data.keys())
 
+Ez_cst=cst_data.get('Ez')
+t_cst = cst_data.get('t')
+nz_cst=cst_data.get('nz')
+nt_cst=cst_data.get('nt')
 charge_dist_cst=cst_data.get('charge_dist')
+s_charge_dist=cst_data.get('s_charge_dist')
 distance=cst_data.get('distance')
 Wake_potential_cst=cst_data.get('Wake_potential_cst')
 Wake_potential_interfaces=cst_data.get('Wake_potential_interfaces')
@@ -233,29 +238,27 @@ Zy_cst=cst_data.get('Zy_cst')
 freq_cst=cst_data.get('freq_cst')
 
 #--- Plot Electric field at cavity center
-fig4 = plt.figure(4, figsize=(6,4), dpi=200, tight_layout=True)
-ax4=fig4.gca()
-ax4.plot(np.array(t)*1.0e9, Ez[int(nz/2), :], lw=0.8, color='b', label='Ez Warp')
-ax4.plot(np.array(t_cst)*1.0e9, Ez_cst[int(nz_cst/2), :], lw=0.8, color='r', label='Ez CST')
-ax4.set(title='Electric field at cavity center',
+fig50 = plt.figure(50, figsize=(6,4), dpi=200, tight_layout=True)
+ax=fig50.gca()
+ax.plot(np.array(t)*1.0e9, Ez[int(nz/2), :], lw=0.8, color='b', label='Ez Warp')
+ax.plot(np.array(t_cst)*1.0e9, Ez_cst[int(nz_cst/2), :], lw=0.8, color='r', label='Ez CST')
+ax.set(title='Electric field at cavity center',
         xlabel='t [ns]',
         ylabel='$E [V/m]$',         
         ylim=(np.min(Ez[int(nz/2), :])*1.1,np.max(Ez[int(nz/2), :])*1.1),
         xlim=(0,np.minimum(np.max(t*1.0e9),np.max(t_cst*1.0e9)))
                 )
-ax4.legend(loc='best')
-ax4.grid(True, color='gray', linewidth=0.2)
+ax.legend(loc='best')
+ax.grid(True, color='gray', linewidth=0.2)
 plt.show()
 
 #--- Plot Electric field at cavity center and discontinuities
 fig40 = plt.figure(40, figsize=(6,4), dpi=200, tight_layout=True)
 ax=fig40.gca()
 ax.plot(t*1.0e9, Ez[int(nz/2), :], lw=1.2, color='g', label='Ez(0,0,0) warp')
-ax.plot(t*1.0e9, Ez[int(iz_l1), :], lw=1.2, color='r', label='Ez(0,0,l1) warp')
-ax.plot(t*1.0e9, Ez[int(iz_l2), :], lw=1.2, color='b', label='Ez(0,0,l2) warp')
+ax.plot(t*1.0e9, Ez[int(iz_l1), :], lw=1, color='r', label='Ez(0,0,l1) warp')
+ax.plot(t*1.0e9, Ez[int(iz_l2), :], lw=1, color='b', label='Ez(0,0,l2) warp')
 ax.plot(np.array(t_cst)*1.0e9, Ez_cst[int(nz_cst/2), :], lw=0.8, ls='--', color='g', label='Ez(0,0,0) CST')
-ax.plot(np.array(t_cst)*1.0e9, Ez_cst[int(iz_l1), :], lw=0.8, ls='--', color='r', label='Ez(0,0,l1) CST')
-ax.plot(np.array(t_cst)*1.0e9, Ez_cst[int(iz_l2), :], lw=0.8, ls='--', color='b', label='Ez(0,0,l2) CST')
 ax.set(title='Electric field at cavity center and discontinuities',
         xlabel='t [ns]',
         ylabel='$E [V/m]$',         
@@ -295,18 +298,18 @@ ax5.grid(True, color='gray', linewidth=0.2)
 plt.show()
 
 #--- Plot charge density for a certain timestep
-n=int(738)
+n=int(550)
 rho=np.transpose(np.array(rho_t))      #array to matrix (z,t)
 
 fig30 = plt.figure(30, figsize=(6,4), dpi=200, tight_layout=True)
 ax=fig30.gca()
 ax.plot(np.array(z)*1.0e3, rho[:, n], lw=1.2, color='r', label='Charge density from Warp')
-ax.plot(s_cst*1.0e3, charge_dist_cst, lw=1.2, color='r', label='Charge density from CST')
+ax.plot(s_charge_dist*1.0e3, charge_dist_cst, lw=1.2, color='black', label='Charge density from CST')
 ax.set(title='Charge density in t='+str(round(t[n]*1.0e9,4))+' ns',
         xlabel='s [mm]',
         ylabel='$ rho $')
 ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)
 plt.show()
-'''
+
 

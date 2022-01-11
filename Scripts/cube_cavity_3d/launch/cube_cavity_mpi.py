@@ -33,9 +33,9 @@ L_cavity = 30*unit
 # Define the mesh
 ##################################
 # mesh cells per direction
-nx = 74
-ny = 74
-nz = 143
+nx = 110
+ny = 110
+nz = 200
 
 # mesh bounds
 xmin = -0.55*w_cavity
@@ -50,7 +50,7 @@ zmax = L_pipe
 ##################################
 # generate the beam
 beam = picmi.Species(particle_type = 'proton',
-                     particle_shape = 'linear',
+                     particle_shape = 'cubic',
                      name = 'beam')
 
 ##################################
@@ -91,7 +91,7 @@ flag_correct_div = True
 # (it is also interesting to try the CKC solver) by setting method='CKC'
 solver = picmi.ElectromagneticSolver(grid = grid,
                                      method = 'CKC',
-                                     cfl = 0.5,
+                                     cfl = 0.80,
                                      source_smoother = smoother,
                                      warp_l_correct_num_Cherenkov = False,
                                      warp_type_rz_depose = 0,
@@ -115,7 +115,7 @@ sim.step(1)
 ##################################
 # Setup the beam injection
 ##################################
-N=10**5
+N=10**7
 beam_layout = picmi.PseudoRandomLayout(n_macroparticles = N, seed = 3)
 
 sim.add_species(beam, layout=beam_layout,
@@ -136,7 +136,7 @@ t_offs = -5.332370636221942e-10   #like CST (-160 mm)
 n_bunches = 1
 
 # beam energy
-beam_gamma = 479.
+beam_gamma = 50. #increase to decrease space charge
 beam_uz = beam_gamma*picmi.constants.c
 
 # macroparticle info
@@ -217,8 +217,8 @@ if not os.path.exists(out_folder):
 
 
 #define the integration path x2, y2
-xtest=0.0   #Assumes x2,y2 of the test particle in 0,0
-ytest=0.0
+xtest=0.0e-3   #Assumes x2,y2 of the test particle in 0,0
+ytest=0.0e-3
 #---set up the vectors
 x=np.linspace(xmin, xmax, nx+1)
 y=np.linspace(ymin, ymax, ny+1)

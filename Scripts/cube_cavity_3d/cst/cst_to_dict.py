@@ -403,6 +403,7 @@ data = { 'Ez' : Ez_t, #shape = (k, len(t))
          'nz' : nz, #mesh cells in z direction
          'nt' : len(t), #number of timesteps
          'charge_dist' : charge_dist, # [C/m]
+         's_charge_dist' : distance,
          'distance' : distance, # [m]
          'Wake_potential_cst' : Wake_potential_cst, # [V/pC]
          'Wake_potential_interfaces' : Wake_potential_interfaces, 
