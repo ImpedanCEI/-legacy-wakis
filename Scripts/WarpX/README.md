@@ -72,10 +72,11 @@ brew install openpmd-api # for openPMD
 ### Step 3: Compile WarpX
 From the base of the WarpX source directory, execute this to compile WarpX 
 
-´´´
+```
 cmake -S . -B build -DWarpX_DIMS=3 -DWarpX_LIB=ON -DWarpX_EB=ON
 cmake --build build -j 4
-´´´
+```
+
 That’s all! WarpX binaries are now in build/bin/. 
 
 ### Step 4: Python bindings
