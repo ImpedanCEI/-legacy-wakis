@@ -21,7 +21,8 @@ WarpX depends on the following popular third party software.
 These dependencies and optional ones like CUDA or OpenMP can be installed via [Spack](https://spack.readthedocs.io/en/latest/getting_started.html#installation) or [Homebrew](https://brew.sh/)
 
 **For Spack do:**
-Install Spack: 
+
+First, install Spack: 
 ```
  git clone -c feature.manyFiles=true https://github.com/spack/spack.git
  . spack/share/spack/setup-env.sh
@@ -46,7 +47,7 @@ spack install
 ```
 
 **For Homebrew do:**
-Install Homebrew: 
+First, install Homebrew: 
 ```
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
