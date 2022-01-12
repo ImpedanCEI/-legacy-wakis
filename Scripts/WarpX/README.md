@@ -1,7 +1,7 @@
 ## Instructions on how to install WarpX
 This README cointains a summary of the tutorial in https://warpx.readthedocs.io/en/latest/install/cmake.html#compile on how to intall WarpX for developers.
 
-### Step 1: Install dependencies
+### Step 1: WarpX source code
 Before you start, you will need a copy of the WarpX source code:
 ```
 git clone https://github.com/ECP-WarpX/WarpX.git $HOME/src/warpx
