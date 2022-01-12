@@ -47,6 +47,7 @@ spack install
 ```
 
 **For Homebrew do:**
+
 First, install Homebrew: 
 ```
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -83,4 +84,6 @@ Build and install pywarpx from the root of the WarpX source tree:
 PYWARPX_LIB_DIR=$PWD/build/lib python3 -m pip wheel .
 python3 -m pip install pywarpx-*whl
 ```
-To avoid mistakes, the whole path to the python/python3 executable can be given
+To avoid mistakes, the whole path to the python/python3 executable can be given.
+
+The end! Now the python libraries of pywarpx are installed in the python version used for the installation. 
