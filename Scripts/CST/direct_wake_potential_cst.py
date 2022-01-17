@@ -46,7 +46,7 @@ zmin=np.min(z)
 '''
 
 #--- read the cst dictionary
-with open('cst/cst_out.txt', 'rb') as handle:
+with open('cst_out.txt', 'rb') as handle:
   cst_data = pk.loads(handle.read())
   print('cst stored variables')
   print(cst_data.keys())
@@ -285,14 +285,14 @@ norm=max(Z)/max(Z_cst) #diference between max in CST and in numpy.fft
 ifreq_max=np.argmax(Z[0:len(Z)//2])
 fig3 = plt.figure(3, figsize=(6,4), dpi=200, tight_layout=True)
 ax=fig3.gca()
-ax.plot(Z_freq[ifreq_max], Z[ifreq_max]/norm, marker='o', markersize=4.0, color='cyan')
-ax.annotate(str(round(Z_freq[ifreq_max],2))+ ' GHz', xy=(Z_freq[ifreq_max],Z[ifreq_max]/norm), xytext=(-20,5), textcoords='offset points', color='cyan') 
-ax.plot(Z_freq[0:len(Z)//2], Z[0:len(Z)//2]/norm, lw=1, color='b', label='numpy FFT')
+ax.plot(Z_freq[ifreq_max], Z[ifreq_max]/norm, marker='o', markersize=4.0, color='b')
+ax.annotate(str(round(Z_freq[ifreq_max],2))+ ' GHz', xy=(Z_freq[ifreq_max],Z[ifreq_max]/norm), xytext=(5,15), textcoords='offset points', color='b') 
+ax.plot(Z_freq[0:len(Z)//2], Z[0:len(Z)//2]/norm, lw=1, color='b', label='Z// with CST fields')
 
 ifreq_max=np.argmax(Z_cst)
-ax.plot(freq_cst[ifreq_max]*1e-9, Z_cst[ifreq_max], marker='o', markersize=5.0, color='pink')
-ax.annotate(str(round(freq_cst[ifreq_max]*1e-9,2))+ ' GHz', xy=(freq_cst[ifreq_max]*1e-9,Z_cst[ifreq_max]), xytext=(+20,5), textcoords='offset points', color='pink') 
-ax.plot(freq_cst*1.0e-9, Z_cst, lw=1.2, color='red', label='W// from CST')
+ax.plot(freq_cst[ifreq_max]*1e-9, Z_cst[ifreq_max], marker='o', markersize=5.0, color='r')
+ax.annotate(str(round(freq_cst[ifreq_max]*1e-9,2))+ ' GHz', xy=(freq_cst[ifreq_max]*1e-9,Z_cst[ifreq_max]), xytext=(+5,5), textcoords='offset points', color='red') 
+ax.plot(freq_cst*1.0e-9, Z_cst, lw=1.2, color='red', label='Z// from CST wake solver')
 
 ax.set(title='Longitudinal impedance Z(w) magnitude',
         xlabel='f [GHz]',
@@ -308,6 +308,7 @@ plt.show()
 #      Obtain W⊥(s)      #
 #------------------------#
 
+#[TODO]
 
 ############################
 #   Comparison with CST    #
@@ -323,6 +324,7 @@ ax.plot(s_cst*1e3, Wake_potential_cst, lw=1.3, color='black', ls='--', label='W_
 ax.set(title='Longitudinal Wake potential',
         xlabel='s [mm]',
         ylabel='$W_{//}$ [V/pC]',
+        xlim=(np.min(s*1.0e3),np.minimum(np.max(s*1.0e3),np.max(s_cst*1.0e3)))
         )
 ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)
