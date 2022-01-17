@@ -1,5 +1,5 @@
 '''
-direct_wake_potential_1d.py
+direct_wake_potential.py
 
 File for postprocessing warp simulations
 
@@ -23,13 +23,12 @@ import h5py as h5py
 
 unit = 1e-3 #mm to m
 c=sc.constants.c
-beta=1.0 #TODO: obtain beta from Warp simulation
 
 ######################
 #      Read data     #
 ######################
 runs_path='/mnt/c/Users/elefu/Documents/CERN/GitHub/PyWake/Scripts/Warp/runs/'
-out_folder=runs_path+'out_gamma10000/'
+out_folder=runs_path+'out_N10e7_cubic/'
 
 #------------------------------------#
 #            1D variables            #
@@ -74,15 +73,9 @@ xmax=max(x)
 ymin=min(y)
 ymax=max(y)
 
-#reshape electric and magnetic fields
+#reshape electric field
+Ez=[]
 Ez=np.transpose(np.array(Ez_t))     #array to matrix (z,t)
-Ex=np.transpose(np.array(Ex_t))
-Ey=np.transpose(np.array(Ey_t))
-Bx=np.transpose(np.array(Bx_t))
-By=np.transpose(np.array(By_t))
-
-#for unstable simulations, trim the last timesteps
-nt=2000
 
 ######################
 #   Wake potential   #
@@ -108,19 +101,13 @@ s=np.append(s, np.linspace(0, Wake_length,  ns_pos))
 
 # initialize Wp variables
 Wake_potential=np.zeros_like(s)
-Wake_potential_x=np.zeros_like(s)
-Wake_potential_y=np.zeros_like(s)
 integral = np.zeros(len(s))  #integral of ez between -l1, l2
 t_s = np.zeros((nt, len(s)))
 
-# interpolate fields so nz == nt
+# interpolate Ez so nz == nt
 z_interp=np.linspace(zmin, zmax, nt)
 dz_interp=z_interp[2]-z_interp[1]
 Ez_interp=np.zeros((nt,nt))
-Ex_interp=np.zeros((nt,nt))
-Ey_interp=np.zeros((nt,nt))
-Bx_interp=np.zeros((nt,nt))
-By_interp=np.zeros((nt,nt))
 
 n=0
 for n in range(nt):
@@ -128,13 +115,9 @@ for n in range(nt):
         pass
     else:
         Ez_interp[:, n]=np.interp(z_interp, z , Ez[:,n])
-        Ex_interp[:, n]=np.interp(z_interp, z , Ex[:,n])
-        Ey_interp[:, n]=np.interp(z_interp, z , Ey[:,n])
-        Bx_interp[:, n]=np.interp(z_interp, z , Bx[:,n])
-        By_interp[:, n]=np.interp(z_interp, z , By[:,n])
 
 #-----------------------#
-#      Obtain W||(s)    #
+#      Obtain W(s)      #
 #-----------------------#
 
 # s loop -------------------------------------#                                                           
@@ -148,16 +131,24 @@ for n in range(len(s)):
     #integral of (Ez(xtest, ytest, z, t=(s+z)/c))dz
     k=0
     for k in range(0, nt): 
-        t_s[k,n]=(z_interp[k]+s[n])/c-zmin/c-t[0]+init_time
+        if not np.any(Ez_interp[k, :]): #if Ez=0 skip the interpolation
+            break
+        else:
+            t_s[k,n]=(z_interp[k]+s[n])/c-zmin/c-t[0]+init_time
 
-        if t_s[k,n]>0.0:
-            it=int(t_s[k,n]/dt)                             #find index for t
-            Wake_potential[n]=Wake_potential[n]+(Ez_interp[k, it])*dz_interp   #compute integral
+            if t_s[k,n]>0.0:
+                it=int(t_s[k,n]/dt)                             #find index for t
+                Wake_potential[n]=Wake_potential[n]+(Ez_interp[k, it])*dz_interp   #compute integral
 
 q=(1e-9)*1e12                       # charge of the particle beam in pC
 Wake_potential=Wake_potential/q     # [V/pC]
 
-#--- plot wake potential 
+#Calculate simulation time
+t1 = time.time()
+totalt = t1-t0
+print('Calculation terminated in %ds' %totalt)
+
+#--- plot wake potential in different locations
 
 fig1 = plt.figure(1, figsize=(6,4), dpi=200, tight_layout=True)
 ax=fig1.gca()
@@ -224,7 +215,7 @@ ax=fig2.gca()
 ax.plot(Z_freq[ifreq_max], Z[ifreq_max], marker='o', markersize=4.0, color='cyan')
 ax.annotate(str(round(Z_freq[ifreq_max],2))+ ' GHz', xy=(Z_freq[ifreq_max],Z[ifreq_max]), xytext=(-10,5), textcoords='offset points', color='grey') 
 #arrowprops=dict(color='blue', shrink=1.0, headwidth=4, frac=1.0)
-ax.plot(Z_freq[0:len(Z)//2], Z[0:len(Z)//2], lw=1, color='b', marker='s', markersize=2., label='Z// numpy FFT')
+ax.plot(Z_freq[0:len(Z)//2], Z[0:len(Z)//2], lw=1, color='b', marker='s', markersize=2., label='numpy FFT')
 
 ax.set(title='Longitudinal impedance Z(w) magnitude',
         xlabel='f [GHz]',
@@ -236,113 +227,16 @@ ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)
 plt.show()
 
-# Transverse wake potential from Lorentz definition 
-
-#-----------------------#
-#      Obtain W⊥(s)     #
-#-----------------------#
-
-# s loop -------------------------------------#                                                           
-n=0
-for n in range(len(s)):    
-
-    #--------------------------------#
-    #         W⊥(s) integral         #
-    #--------------------------------#
-
-    #Wx: integral of [(Ex(xtest, ytest, z, t=(s+z)/c))-beta*c*By(xtest, ytest, z, t=(s+z)/c)]dz
-    #Wy: integral of [(Ex(xtest, ytest, z, t=(s+z)/c))-beta*c*By(xtest, ytest, z, t=(s+z)/c)]dz
-    k=0
-    for k in range(0, nt): 
-        t_s[k,n]=(z_interp[k]+s[n])/c-zmin/c-t[0]+init_time
-
-        if t_s[k,n]>0.0:
-            it=int(t_s[k,n]/dt)                             #find index for t
-            Wake_potential_x[n]=Wake_potential_x[n]+(Ex_interp[k, it]-beta*c*By_interp[k,it])*dz_interp   #compute integral
-            Wake_potential_y[n]=Wake_potential_y[n]+(Ey_interp[k, it]-beta*c*Bx_interp[k,it])*dz_interp   #compute integral         
-
-Wake_potential_x=Wake_potential_x/q     # [V/pC]
-Wake_potential_y=Wake_potential_y/q     # [V/pC]
-
-#--- plot transverse wake potential 
-
-fig10 = plt.figure(10, figsize=(6,4), dpi=200, tight_layout=True)
-ax=fig10.gca()
-ax.plot(s*1.0e3, Wake_potential_x, lw=1.2, color='g', label='Wx⊥[0,0](s)')
-ax.plot(s*1.0e3, Wake_potential_y, lw=1.2, color='magenta', label='Wy⊥[0,0](s)')
-ax.set(title='Transverse Wake potential W⊥(s)',
-        xlabel='s [mm]',
-        ylabel='$W_{//}$ [V/pC]',
-        )
-ax.legend(loc='best')
-ax.grid(True, color='gray', linewidth=0.2)
-plt.show()
-
-#--------------------------------#
-#      Obtain impedance Z⊥       #
-#--------------------------------#
-
-#--- Obtain impedance Z with Fourier transform numpy.fft.fft
-# to increase the resolution of fft, a longer wake length is needed
-# Padding woth zeros to increase N samples = smoother FFT
-
-Wake_potential_x_padded=np.append(Wake_potential_x, np.zeros(10000))
-Wake_potential_x_fft=abs(np.fft.fft(Wake_potential_x_padded[0:-1:t_sample]))
-Z_x_freq = np.fft.fftfreq(len(Wake_potential_x_padded[:-1:t_sample]), ds/c*t_sample)*1e-9 #GHz
-Z_x = abs(- Wake_potential_x_fft / charge_dist_fft)
-
-Wake_potential_y_padded=np.append(Wake_potential_y, np.zeros(10000))
-Wake_potential_y_fft=abs(np.fft.fft(Wake_potential_y_padded[0:-1:t_sample]))
-Z_y_freq = np.fft.fftfreq(len(Wake_potential_y_padded[:-1:t_sample]), ds/c*t_sample)*1e-9 #GHz
-Z_y = abs(- Wake_potential_y_fft / charge_dist_fft)
-
-#--- Plot impedance
-
-# Obtain the maximum frequency
-ifreq_x_max=np.argmax(Z[0:len(Z_x)//2])
-ifreq_y_max=np.argmax(Z[0:len(Z_y)//2])
-fig20 = plt.figure(20, figsize=(6,4), dpi=200, tight_layout=True)
-ax=fig20.gca()
-ax.plot(Z_x_freq[ifreq_x_max], Z_x[ifreq_x_max], marker='o', markersize=4.0, color='cyan')
-ax.annotate(str(round(Z_x_freq[ifreq_x_max],2))+ ' GHz', xy=(Z_x_freq[ifreq_x_max],Z_x[ifreq_x_max]), xytext=(-10,5), textcoords='offset points', color='grey') 
-ax.plot(Z_x_freq[0:len(Z_x)//2], Z_x[0:len(Z_x)//2], lw=1, color='g', marker='s', markersize=2., label='Zx⊥ numpy FFT')
-
-ax.plot(Z_y_freq[ifreq_y_max], Z_x[ifreq_y_max], marker='o', markersize=4.0, color='cyan')
-ax.annotate(str(round(Z_y_freq[ifreq_y_max],2))+ ' GHz', xy=(Z_y_freq[ifreq_y_max],Z_y[ifreq_y_max]), xytext=(-10,5), textcoords='offset points', color='grey') 
-ax.plot(Z_y_freq[0:len(Z_y)//2], Z_y[0:len(Z_y)//2], lw=1, color='magenta', marker='s', markersize=2., label='Zy⊥ numpy FFT')
-
-ax.set(title='Transverse impedance Z⊥(w) magnitude',
-        xlabel='f [GHz]',
-        ylabel='Z [Ohm]',   
-        #ylim=(0.,np.max(Z_x)*1.2),
-        #xlim=(0.,np.max(Z_x_freq))      
-        )
-ax.legend(loc='best')
-ax.grid(True, color='gray', linewidth=0.2)
-plt.show()
-
 #--- Save the data 
 data = { 'Wake_potential' : Wake_potential, 
          's' : s,
          'k_factor' : k_factor,
          'Impedance' : Z,
-         'frequency' : Z_freq,
-         'Wake_potential_x' : Wake_potential_x,
-         'Wake_potential_y' : Wake_potential_y,
-         'Impedance_x' : Z_x,
-         'Impedance_y' : Z_y,
-         'frequency_x' : Z_x_freq,
-         'frequency_y' : Z_y_freq,
-
+         'frequency' : Z_freq
         }
 # write the dictionary to a txt using pickle module
 with open(out_folder + 'wake_solver.txt', 'wb') as handle:
   pk.dump(data, handle)
-
-#Calculate simulation time
-t1 = time.time()
-totalt = t1-t0
-print('Calculation terminated in %ds' %totalt)
 
 
 ############################
@@ -356,24 +250,18 @@ with open(cst_path+'cst_out.txt', 'rb') as handle:
   print('cst stored variables')
   print(cst_data.keys())
 
+#--- store the variables
 charge_dist_cst=cst_data.get('charge_dist')
 distance=cst_data.get('distance')
 Wake_potential_cst=cst_data.get('Wake_potential_cst')
-Wake_potential_interfaces=cst_data.get('Wake_potential_interfaces')
-Wake_potential_testbeams=cst_data.get('Wake_potential_testbeams')
-WPx_cst=cst_data.get('WPx_cst')
-WPy_cst=cst_data.get('WPy_cst')
 s_cst=cst_data.get('s_cst')
 Z_cst=cst_data.get('Z_cst')
-Zx_cst=cst_data.get('Zx_cst')
-Zy_cst=cst_data.get('Zy_cst')
 freq_cst=cst_data.get('freq_cst')
 
-#--- Plot longitudinal WP comparison with CST
-
+#--- Plot comparison
 q=(1e-9)*1e12 # charge of the particle beam in pC
-fig40 = plt.figure(40, figsize=(6,4), dpi=200, tight_layout=True)
-ax=fig40.gca()
+fig4 = plt.figure(4, figsize=(6,4), dpi=200, tight_layout=True)
+ax=fig4.gca()
 ax.plot(s*1.0e3, Wake_potential, lw=1.2, color='orange', label='W_//(s) direct integration')
 ax.plot(s_cst*1e3, Wake_potential_cst, lw=1.3, color='black', ls='--', label='W_//(s) CST')
 ax.set(title='Longitudinal Wake potential',
@@ -385,26 +273,22 @@ ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)
 plt.show()
 
+'''
+#--- Plot normalized comparison 
 
-#--- Plot transverse WP comparison with CST
-
-q=(1e-9)*1e12 # charge of the particle beam in pC
-fig4 = plt.figure(4, figsize=(6,4), dpi=200, tight_layout=True)
-ax=fig4.gca()
-ax.plot(s*1.0e3, Wake_potential_x, lw=1.2, color='g', label='Wx⊥[0,0](s)')
-ax.plot(s_cst*1.0e3, WPx_cst, lw=1.2, color='g', ls='--', label='Wx⊥[0,0](s) from CST')
-ax.plot(s*1.0e3, Wake_potential_y, lw=1.2, color='magenta', label='Wy⊥[0,0](s)')
-ax.plot(s_cst*1.0e3, WPy_cst, lw=1.2, color='magenta', ls='--', label='Wy⊥[0,0](s) from CST')
-ax.set(title='Transverse Wake potential W⊥(s)',
+fig5 = plt.figure(5, figsize=(6,4), dpi=200, tight_layout=True)
+ax=fig5.gca()
+ax.plot(s*1e3, Wake_potential/np.max(Wake_potential), lw=1.3, color='orange', label='$W_{//}(s)$ indirect integration')
+ax.plot(s_cst*1e3, Wake_potential_cst/np.max(Wake_potential_cst), lw=1.2, color='orange', ls='--', label='$W_{//}(s)$ from CST')
+ax.set(title='Normalized longitudinal Wake potential',
         xlabel='s [mm]',
         ylabel='$W_{//}$ [V/pC]',
-        xlim=(min(s*1.0e3), np.amin((np.max(s*1.0e3), np.max(s_cst*1.0e3)))),
-        ylim=(-0.04, 0.07)
+        ylim=(-1.5,1.5)
         )
 ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)
 plt.show()
-
+'''
 #--- Plot impedance comparison with CST [normalized]
 
 # Plot comparison with CST [normalized]
