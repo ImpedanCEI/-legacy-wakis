@@ -1,0 +1,20 @@
+cmake -S . -B build -DWarpX_EB=ON -DMPI_C_COMPILER=/afs/cern.ch/work/e/edelafue/spack/opt/spack/linux-centos7-broadwell/gcc-9.2.0/openmpi-4.1.2-llbo2saz54qx6nijuzc5iysxtx5d4n22/bin/mpicc -DMPI_CXX_COMPILER=/afs/cern.ch/work/e/edelafue/spack/opt/spack/linux-centos7-broadwell/gcc-9.2.0/openmpi-4.1.2-llbo2saz54qx6nijuzc5iysxtx5d4n22/bin/mpicxx  -DWarpX_COMPUTE=CUDA -DAMReX_CUDA_ARCH='7.0;7.5' 
+
+export CUDACXX=/afs/cern.ch/work/e/edelafue/spack/opt/spack/linux-centos7-broadwell/gcc-9.2.0/cuda-11.5.1-joohsqvxey7xzn5mapj7lldpcg7ftlqs/bin/nvcc
+export CUDAHOSTCXX=/cvmfs/sft.cern.ch/lcg/releases/gcc/9.2.0/x86_64-centos7/bin/g++
+
+PML DAMPING:
+go to warpx/Source/BoundaryConditions/PML.cpp
+To turn on the pml damping we changed line ~75 and added a - sign in from of the parenthesis, also in line 80 too and did :wq
+Then recompiled warpx with:
+cmake --build build -j 4
+PYWARPX_LIB_DIR=$PWD/build/lib python3 -m pip wheel .
+python3 -m pip install --force-reinstall --no-dependencies pywarpx-*whl
+in the warpx/ folder
+
+ECT SOLVER: We typed ipython
+import picmistandard
+picmistandard.__path__
+then cd to this path outside ipython
+vi fields.py
+update the solvers list with 'ECT' method

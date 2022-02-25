@@ -1,87 +1,39 @@
-'''
-cubic_cav_warpx.py
-
-Script to perform simulations of a cubic cavity in WarpX 
-to obtain the wake potential and impedance
-
---- Define the simulation length based on the Wake length
---- Define the test and source positions of the beam
---- Performs the simulation with WarpX-PIC solver
---- Stores the electric field Ez and charge distribution in .h5 file
---- Stores the geometry and simulation input in a dictionary with pickle 
-
-'''
-
 from pywarpx import picmi
+import numpy as np
 from pywarpx import libwarpx, fields, callbacks
 import pywarpx.fields as pwxf
-import numpy as np
-import numpy.random as random
-import scipy as sc
 from scipy.constants import c, m_p, e
+import numpy.random as random
 import matplotlib.pyplot as plt
+from geom_functions import plot_implicit, triang_implicit
+import scipy as sc
 import pickle as pk
 import time
 import os
 import h5py
-import sys
-
-from geom_functions import plot_implicit, triang_implicit
 
 t0 = time.time()
 
-##################################
-# User defined variables
-##################################
-
-# output path
+# macros
 path='/mnt/c/Users/elefu/Documents/CERN/GitHub/PyWake/Scripts/WarpX/'
-
-# create output directory 
-out_folder=path+'out/'
-if not os.path.exists(out_folder):
-    os.mkdir(out_folder)
-
-# create logfile
-sys.stdout = open(path+"out/log.txt", "w")
-
-# simulation parameters
-CFL=1.0             #Courant-Friedrichs-Levy criterion for stability
-NUM_PROC = 1        #number of mpi processors wanted to use
-unit = 1e-3         #conversion factor from input to [m]
-Wake_length=2000*unit    #Wake potential length in s [m]
-
-# flags
-flag_add_diagnosis = False    #turn on and off warpx diagnostics
-
-# beam center 
-# ---[longitudinal impedance: beam center in 0,0]
-# ---[dipolar impedance: beam center in a,0 or 0,a or a,a]
-xsource = 3.0*unit
-ysource = 3.0*unit 
-
-# test particle center 
-# ---[longitudinal impedance: test axis in 0,0]
-# ---[quadrupolar impedance: test axis in a,0 or 0,a or a,a]
-xtest = 0.0*unit   
-ytest = 0.0*unit
+max_steps = 3000
+t_period = 1    #datadata saved every t_perio timesteps
+NUM_PROC = 1    #number of mpi processors wanted to use
+unit = 1e-3
+flag_add_diagnosis=False    #turn on and off warpx diagnostics
 
 ##################################
 # Define the geometry
 ##################################
 
-# width of the rectangular beam pipe (x direction)
-w_pipe = 15*unit
-# height of the rectangular beam pipe (y direction)
-h_pipe = 15*unit
+# radius of the beam pipe 
+r_pipe = 15*unit/2
 # length of the pipe (bigger than the domain to resemble infinite length)
 L_pipe = 50*unit
 
-# width of the rectangular beam pipe (x direction)
-w_cav = 50*unit
-# height of the rectangular beam pipe (y direction)
-h_cav = 50*unit
-# length of the pipe (bigger than the domain to resemble infinite length)
+# radius of the beam cavity 
+r_cav = 50*unit/2
+# length of the beam cavity 
 L_cav = 30*unit
 
 
@@ -91,20 +43,28 @@ L_cav = 30*unit
 # mesh cells per direction. Has to be a 2^3 power
 nx = 64 
 ny = 64
-nz = 256
+nz = 128
 
 # mesh bounds for domain. Last 10 cells are PML
 xmin = -32*unit
 xmax = 32*unit
 ymin = -32*unit
 ymax = 32*unit
-zmin = -128*unit 
-zmax = 128*unit
+zmin = -64*unit 
+zmax = 64*unit
 
 # mesh cell widths
 dx=(xmax-xmin)/nx
 dy=(ymax-ymin)/ny
-dz=(zmax-zmin)/nz
+dz =(zmax-zmin)/nz
+
+# shift the mesh to have (0,0,0) as a mesh point
+xmin+=dx/2
+xmax+=dx/2
+ymin+=dy/2
+ymax+=dy/2
+zmin+=dz/2
+zmax+=dz/2
 
 # mesh arrays
 x=np.linspace(xmin, xmax, nx)
@@ -123,6 +83,7 @@ max_grid_size_z = nz//NUM_PROC
 protn_mass = m_p
 proton_charge = e
 beam = picmi.Species(particle_type='proton',
+                     #particle_shape = 'cubic',
                      name = 'beam')
 
 ##########################
@@ -147,7 +108,7 @@ grid = picmi.Cartesian3DGrid(
 
 flag_correct_div = False
 flag_correct_div_pml = False
-solver = picmi.ElectromagneticSolver(grid=grid, method='Yee', cfl=CFL,
+solver = picmi.ElectromagneticSolver(grid=grid, method='ECT', cfl=1., #change solver to conformal (Yee --> ECT)
                                      divE_cleaning = flag_correct_div,
                                      pml_divE_cleaning = flag_correct_div_pml,
                                      warpx_do_pml_in_domain = True,
@@ -157,30 +118,31 @@ solver = picmi.ElectromagneticSolver(grid=grid, method='Yee', cfl=CFL,
 # Define the implicit function for the boundary conditions
 flag_plot_geom= True
 embedded_boundary = picmi.EmbeddedBoundary(
-    implicit_function="w=w_pipe+(w_cav-w_pipe)*(z<L_cav/2)*(z>-L_cav/2); h=h_pipe+(h_cav-h_pipe)*(z<L_cav/2)*(z>-L_cav/2); max(max(x-w/2,-w/2-x),max(y-h/2,-h/2-y))",
-    w_cav=w_cav, 
-    h_cav=h_cav, 
+    implicit_function="r=(z<=(-L_cav/2))*r_pipe + (z>=(+L_cav/2))*r_pipe + (z>(-L_cav/2))*(z<(+L_cav/2))*r_cav; sqrt(x*x + y*y)-r;",
+    r_cav=r_cav,  
     L_cav=L_cav, 
-    w_pipe=w_pipe, 
-    h_pipe=h_pipe, 
+    r_pipe=r_pipe, 
 )
 
 # Plot the surface to check the geometry (x,z,y) are disposed so z is in the longitudinal direction
 def implicit_function(x,z,y):
-    w=w_pipe+(w_cav-w_pipe)*(z<L_cav/2)*(z>-L_cav/2)
-    h=h_pipe+(h_cav-h_pipe)*(z<L_cav/2)*(z>-L_cav/2)
-    return np.maximum(np.maximum(x-w/2,-w/2-x),np.maximum(y-h/2,-h/2-y))
+    r=(z<=(-L_cav/2))*r_pipe + (z>=(+L_cav/2))*r_pipe + (z>(-L_cav/2))*(z<(+L_cav/2))*r_cav
+    return x*x + y*y - r*r
 
 if flag_plot_geom:
-    #plot_implicit(fn=implicit_function, lims=(-w_cav/1.9,+w_cav/1.9,-h_cav/1.9,+h_cav/1.9,zmin,zmax), bbox=(zmin,zmax))
+    #plot_implicit(fn=implicit_function, lims=(zmin,zmax)*3, bbox=(zmin,zmax))
     triang_implicit(fn=implicit_function, bbox=(zmin,zmax))
 
+
 ##########################
-# diagnostics
+# diagnostics 
 ##########################
+#create output directories for txt
+out_folder=path+'out/'
+if not os.path.exists(out_folder):
+    os.mkdir(out_folder)
 
 if flag_add_diagnosis:
-    t_period = 1 #datadata saved every t_period timesteps
     field_diag = picmi.FieldDiagnostic(
         name = 'diag1',
         grid = grid,
@@ -196,24 +158,10 @@ if flag_add_diagnosis:
 # simulation setup
 ##########################
 
-# obtain number of timesteps needed for the wake length
-# time when the bunch enters the cavity
-init_time = 5.332370636221942e-10 
-
-# timestep size
-dt=(1/c)/np.sqrt((1/dx)**2+(1/dy)**2+(1/dz)**2)
-
-# timesteps needed to simulate
-max_steps=int((Wake_length+init_time*c+(zmax-zmin))/dt/c)
-
-print('Timesteps to simulate = '+ str(max_steps) + ' with timestep dt = ' + str(dt))
-print('Wake length = '+str(Wake_length/unit)+ ' mm')
-
 sim = picmi.Simulation(
     solver = solver,
     max_steps = max_steps,
     warpx_embedded_boundary=embedded_boundary,
-    particle_shape = 'cubic',
     verbose = 1
 )
 
@@ -240,7 +188,7 @@ sigmay = 2e-4
 # spacing between bunches
 b_spac = 25e-9
 # offset of the bunch centroid
-t_offs = -init_time #+ 9*dz/c   #like CST (-160 mm) + non-vacuum cells from injection point
+t_offs = -5.332370636221942e-10 #+ 9*dz/c   #like CST (-160 mm) + non-vacuum cells from injection point
 # number of bunches to simulate
 n_bunches = 1
 
@@ -256,9 +204,8 @@ bunch_physical_particles  = int(bunch_charge/e)
 bunch_macro_particles = N
 bunch_w = bunch_physical_particles/bunch_macro_particles
 
-# Define the beam offset
-ixsource=int((xsource-x[0])/dx)
-iysource=int((ysource-y[0])/dy)
+xsource = 0.0*unit
+ysource = 0.0*unit 
 
 bunch_rms_size            = [sigmax, sigmay, sigmaz]
 bunch_rms_velocity        = [0.,0.,0.]
@@ -272,7 +219,7 @@ def time_prof(t):
     dt = libwarpx.libwarpx_so.warpx_getdt(0)
     for i in range(0,n_bunches):
         val += bunch_macro_particles*1./np.sqrt(2*np.pi*sigmat*sigmat)*np.exp(-(t-i*b_spac+t_offs)*(t-i*b_spac+t_offs)/(2*sigmat*sigmat))*dt
-        #print(val)
+        print(val)
     return val
 
 # auxiliary function for injection
@@ -341,31 +288,30 @@ if not flag_add_diagnosis:
     rho_t=[]
     t=[]
 
-    # Define the integration path for test particle (xtest, ytest)
+    # Define the integration path for test particle
+    xtest=0.0*unit   #Default: test particle in 0,0
+    ytest=0.0*unit
     #---search for the index
-    ixtest=int((xtest-x[0])/dx)
+    ixtest=int((xtest-x[0])/dx) 
     iytest=int((ytest-y[0])/dy)
     #---print check
     print('Field will be extracted around ('+str(round(x[ixtest]/unit,3))+','+str(round(y[iytest]/unit,3))+',z,t) [mm]')
     #---save the n adjacent cells in each direction
-    n_adj_cells=int(3) #number of adjacent cells to save
+    n_adj_cells=int(2) #number of adjacent cells to save
 
 
     # Perform the simulation
     for n_step in range(max_steps):
 
-        print(n_step)
         sim.step(1)
 
         # Extract the electric field from all processors
         Ez = fields.EzWrapper().get_fabs(0,2,include_ghosts=False)[0]
-        '''
         Ex = fields.ExWrapper().get_fabs(0,2,include_ghosts=False)[0]
         Ey = fields.EyWrapper().get_fabs(0,2,include_ghosts=False)[0]
         # Extract the magnetic field from all processors
         Bx = fields.BxWrapper().get_fabs(0,2,include_ghosts=False)[0]
         By = fields.ByWrapper().get_fabs(0,2,include_ghosts=False)[0]
-        '''
         # Extract charge density
         rho = fields.JzWrapper().get_fabs(0,2,include_ghosts=False)[0]/(beam_beta*c)  #[C/m3]
         # Extraxt the timestep size
@@ -376,17 +322,14 @@ if not flag_add_diagnosis:
         if n_step == 0:
             prefix='0'*5
             # Saves the Ez field in a prism along the z axis 3 cells wide
-            hf_Ez.create_dataset('Ez_'+prefix+str(n_step), data=Ez[ixtest-n_adj_cells:ixtest+n_adj_cells+1 , iytest-n_adj_cells:iytest+n_adj_cells+1,nz//2-50:nz//2+51])
-            hf_rho.create_dataset('rho_'+prefix+str(n_step), data=rho[ixsource,iysource,:])
-            #hf_rho.create_dataset('rho_'+prefix+str(n_step), data=rho[ixsource-n_adj_cells:ixsource+n_adj_cells+1 , iysource-n_adj_cells:iysource+n_adj_cells+1,:])
+            hf_Ez.create_dataset('Ez_'+prefix+str(n_step), data=Ez[ixtest-n_adj_cells:ixtest+n_adj_cells+1 , iytest-n_adj_cells:iytest+n_adj_cells+1,:])
+            hf_rho.create_dataset('rho_'+prefix+str(n_step), data=rho[ixtest,iytest,:])
         else:
             prefix='0'*(5-int(np.log10(n_step)))
             # Saves the Ez field in a prism along the z axis 3 cells wide
-            hf_Ez.create_dataset('Ez_'+prefix+str(n_step), data=Ez[ixtest-n_adj_cells:ixtest+n_adj_cells+1 , iytest-n_adj_cells:iytest+n_adj_cells+1,nz//2-50:nz//2+51])
-            hf_rho.create_dataset('rho_'+prefix+str(n_step), data=rho[ixsource,iysource,:])
-            #hf_rho.create_dataset('rho_'+prefix+str(n_step), data=rho[ixsource-n_adj_cells:ixsource+n_adj_cells+1 , iysource-n_adj_cells:iysource+n_adj_cells+1,:])
+            hf_Ez.create_dataset('Ez_'+prefix+str(n_step), data=Ez[ixtest-n_adj_cells:ixtest+n_adj_cells+1 , iytest-n_adj_cells:iytest+n_adj_cells+1,:])
+            hf_rho.create_dataset('rho_'+prefix+str(n_step), data=rho[ixtest,iytest,:])
 
-        '''
         # Save field arrays [NOT WORKING]: saves the same value all the timesteps
         Ez_t.append(Ez[ixtest,iytest,:])
         Ex_t.append(Ex[ixtest,iytest,:])
@@ -394,7 +337,6 @@ if not flag_add_diagnosis:
         Bx_t.append(Bx[ixtest,iytest,:])
         By_t.append(By[ixtest,iytest,:])
         rho_t.append(rho[ixtest,iytest,:])
-        '''
 
     # Close the hdf5 files
     hf_Ez.close()
@@ -405,7 +347,6 @@ if not flag_add_diagnosis:
 t1 = time.time()
 totalt = t1-t0
 print('Run terminated in %ds' %totalt)
-sys.stdout.close()
 
 ##########################
 #    Generate output     #
@@ -421,28 +362,19 @@ input_data = { 'init_time' : -t_offs,
          'nx' : nx,
          'ny' : ny,
          'nz' : nz,
-         'w_cavity' : w_cav,
-         'h_cavity' : h_cav,
+         'r_cavity' : r_cav,
          'L_cavity' : L_cav,
-         'w_pipe' : w_pipe,
-         'h_pipe' : h_pipe,
+         'r_pipe' : r_pipe,
          'L_pipe' : L_pipe,
          'sigmaz' : sigmaz,
          'xsource' : xsource,
          'ysource' : ysource,
-         'xtest' : xtest,
-         'ytest' : ytest,
          'ixtest' : ixtest,
          'iytest' : iytest,
          'n_adj_cells' : n_adj_cells,
         }
 
-# write the input dictionary to a txt using pickle module
-with open(out_folder+'input_data.txt', 'wb') as handle:
-  pk.dump(input_data, handle)
-
-'''
-# Create dictionary with fields data [NOT WORKING]
+# Create dictionary with fields data [NOT WORKING]: saves the same value all the timesteps 
 field_data = {  'Ez' : np.transpose(np.array(Ez_t)),
                 'Ex' : np.transpose(np.array(Ex_t)),
                 'Ey' : np.transpose(np.array(Ey_t)),
@@ -452,8 +384,10 @@ field_data = {  'Ez' : np.transpose(np.array(Ez_t)),
                 't' : np.array(t),
             }
 
+# write the input dictionary to a txt using pickle module
+with open(out_folder+'input_data.txt', 'wb') as handle:
+  pk.dump(input_data, handle)
 
  # write the fields dictionary to a txt using pickle module
 with open(out_folder+'field_data.txt', 'wb') as handle:
   pk.dump(field_data, handle)
-'''
