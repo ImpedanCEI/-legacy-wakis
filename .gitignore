@@ -9,5 +9,6 @@
 **/csv
 **/old
 **/out*
-#**/cube_cavity*
+**/runs
+**/data
 **/originals
