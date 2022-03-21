@@ -16,6 +16,54 @@ import h5py
 UNIT = 1e-3 #conversion to m
 OUT_PATH = os.getcwd() + '/'
 
+def check_data(data):
+'''
+Check if all the needed variables for the wake solver are defined.
+- Charge distribution (z.t) extraction from rho.h5 file [C/m]
+- Beam charge q: defaul 1e-9 [C]
+- Unit conversion: default 1e-3 [m]
+
+'''
+    if data.get('charge_dist') is None:
+        hf_rho = h5py.File(out_path +'rho.h5', 'r')
+
+        #get number of datasets
+        dataset_rho=[]
+        for key in hf_rho.keys():
+            dataset_rho.append(key)
+
+        # Extract charge distribution [C/m] lambda(z,t)
+        charge_dist=[]
+        x=data.get('x')
+        y=data.get('y')
+        nt=data.get('nt')
+
+        dx=x[2]-x[1]
+        dy=y[2]-y[1]
+        for n in range(nt):
+            rho=hf_rho.get(dataset_rho[n]) # [C/m3]
+            charge_dist.append(np.array(rho)*dx*dy) # [C/m]
+
+        charge_dist=np.transpose(np.array(charge_dist)) # [C/m]
+
+        # Correct the maximum value so the integral along z = q
+        timestep=np.argmax(charge_dist[nz//2, :])   #max at cavity center
+        qz=np.sum(charge_dist[:,timestep])*dz       #charge along the z axis
+        charge_dist = charge_dist[int(nz/2-L_pipe/dz):int(nz/2+L_pipe/dz+1), :]*bunch_charge/qz    #total charge in the z axis
+
+        data['charge_dist']=charge_dist
+        print('charge_dist checked')
+
+    if data.get('q') is None:
+        data['q']=1e-9
+        print('q checked')
+
+    if data.get('unit') is None:
+        data['unit']=1e-3
+        print('unit checked')
+
+    return data
+
 def FFT(Xt, dt, fmax=None, r=2.0, flag_zeropadding=True):
     ''' 
     Calculate the FFT of a signal
@@ -73,6 +121,7 @@ def FFT(Xt, dt, fmax=None, r=2.0, flag_zeropadding=True):
     Xf=K*Xf
 
     return Xf, f
+
 
 def DFT(Xt, dt, fmax=None, Nf=1000):
     ''' 
@@ -149,7 +198,8 @@ def DFT(Xt, dt, fmax=None, Nf=1000):
 
     return Xf, f
 
-def read_WarpX_out(out_path=OUT_PATH):
+
+def read_WarpX_out(out_path):
     '''
     Read the input data of warpx stored in a dict with pickle
     '''
@@ -157,13 +207,14 @@ def read_WarpX_out(out_path=OUT_PATH):
         input_data = pk.loads(handle.read())
     return input_data
 
-def read_Ez(filename='Ez.h5', out_path=OUT_PATH):
+
+def read_Ez(out_path, filename='Ez.h5'):
     '''
     Read the Ez h5 file
     '''
-    hf = h5py.File(out_folder+h5_name, 'r')
-    print('Reading the h5 file: '+ out_folder+h5_name)
-    print('---Size of the file: '+str(round((os.path.getsize(out_folder+h5_name)/10**9),2))+' Gb')
+    hf = h5py.File(out_path+filename, 'r')
+    print('Reading the h5 file: '+ out_path+filename)
+    print('--- Size of the file: '+str(round((os.path.getsize(out_path+filename)/10**9),2))+' Gb')
 
     # get number of datasets
     size_hf=0.0
@@ -179,24 +230,31 @@ def read_Ez(filename='Ez.h5', out_path=OUT_PATH):
     shapex=Ez_0.shape[0]  
     shapey=Ez_0.shape[1] 
     shapez=Ez_0.shape[2] 
-    print('---Ez field is stored in a matrix with shape '+str(Ez_0.shape)+' in '+str(int(size_hf))+' datasets')
+    print('--- Ez field is stored in a matrix with shape '+str(Ez_0.shape)+' in '+str(int(size_hf))+' datasets')
 
     return hf, dataset
 
-def calc_long_WP(data=read_WarpX_out(OUT_PATH), filename='Ez.h5', out_path=OUT_PATH):
+
+def calc_long_WP(data, out_path, filename='Ez.h5'):
     '''
     Obtains the Longitudinal Wake Potential 
     from the electric field Ez 
     through the Direct method
+
+    -data=read_WarpX_out(OUT_PATH)
     '''
 
     # Read data
-    hf, dataset = read_Ez(filename, out_path)
+    hf, dataset = read_Ez(out_path, filename)
 
     t = data.get('t')               #simulated time [s]
     z = data.get('z')               #z axis values  [m]
     t_inj = data.get('init_time')   #injection time [s]
     q = data.get('q')               #beam charge [C]
+    unit = data.get('unit')         #convserion from [m] to [xm]
+    z0 = data.get('z0')             #full domain length (+pmls) [m]
+
+    if z0 is None: z0 = z
 
     # Aux variables
     nt = len(t)
@@ -210,15 +268,19 @@ def calc_long_WP(data=read_WarpX_out(OUT_PATH), filename='Ez.h5', out_path=OUT_P
     dzi=zi[2]-zi[1]                 #interpolated z resolution
 
     # Set Wake_length, s
-    Wake_length=nt*dt*c - (zmax-zmin) - t_inj*c
+    if len(z0)>len(z):
+        t_inj=t_inj + ((max(z0)-min(z0)) - (zmax-zmin))/c/2.0 
+        Wake_length=nt*dt*c - (zmax-zmin) - t_inj*c
+    else:
+        Wake_length=nt*dt*c - (zmax-zmin) - t_inj*c
 
     ns_neg=int(t_inj/dt)            #obtains the length of the negative part of s
     ns_pos=int(Wake_length/(dt*c))  #obtains the length of the positive part of s
     s=np.linspace(-t_inj*c, 0, ns_neg) #sets the values for negative s
     s=np.append(s, np.linspace(0, Wake_length,  ns_pos))
 
-    print('---Max simulated time = '+str(round(t[-1]*1.0e9,4))+' ns')
-    print('---Wakelength = '+str(Wake_length/unit)+' mm')
+    print('--- Max simulated time = '+str(round(t[-1]*1.0e9,4))+' ns')
+    print('--- Wakelength = '+str(Wake_length/unit)+' mm')
 
     # Initialize variables
     Ezi = np.zeros((nt,nt))     #interpolated Ez field
@@ -267,12 +329,18 @@ def calc_long_WP(data=read_WarpX_out(OUT_PATH), filename='Ez.h5', out_path=OUT_P
 
     return WP_3d, s
 
-def calc_trans_WP(s, WP_3d):
+
+def calc_trans_WP(WP_3d, s, data):
     '''
     Obtains the transverse wake potetential 
     through Panofsky-Wenzel theorem using the 
     longitudinal wake potential calculation 
     '''
+    # Obtain x, y 
+    x=data.get('x')
+    y=data.get('y')
+    dx=x[2]-x[1]
+    dy=y[2]-y[1]
 
     # Initialize variables
     i0 = 1 
@@ -295,6 +363,8 @@ def calc_trans_WP(s, WP_3d):
         WPy[n] = - (int_WP[i0,j0+1,n]-int_WP[i0,j0-1,n])/(2*dy)
 
     return WPx, WPy
+
+
 
 if __name__ == "__main__":
     

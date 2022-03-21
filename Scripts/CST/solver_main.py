@@ -12,7 +12,7 @@ File for postprocessing CST simulations
 
 '''
 print('---------------------')
-print('|  Running PyWake   |')
+print('|  Running WAKIS   |')
 print('---------------------')
 
 import numpy as np
@@ -20,19 +20,17 @@ import matplotlib.pyplot as plt
 import time
 import sys
 import os
-import scipy.constants as spc 
+from scipy.constants import c 
 import scipy.interpolate as spi 
 import pickle as pk
 import h5py as h5py
 
 unit = 1e-3 #mm to m
-c=spc.c
-beta=1.0 #TODO: obtain beta from Warp simulation
 
 ######################
 #      Read data     #
 ######################
-runs_path='/mnt/c/Users/elefu/Documents/CERN/PyWake/Scripts/CST/' 
+runs_path='/mnt/c/Users/elefu/Documents/CERN/WAKIS/Scripts/CST/' 
 out_folder=runs_path
 
 #------------------------------------#
@@ -286,8 +284,8 @@ for n in range(len(s)):
                                         -8*int_WP[i0,j0-1,n]+int_WP[i0,j0-2,n])/(12*dy)
     if flag_second_order:
     # Perform the gradient (second order scheme)
-        WPx[n]= - (int_WP[i0+1,j0,n]-int_WP[i0,j0,n])/(2*dx)
-        WPy[n]= - (int_WP[i0,j0+1,n]-int_WP[i0,j0,n])/(2*dy)
+        WPx[n]= - (int_WP[i0,j0,n]-int_WP[i0-1,j0,n])/(2*dx)
+        WPy[n]= - (int_WP[i0,j0,n]-int_WP[i0,j0-1,n])/(2*dy)
     else:
     # Perform the gradient (first order scheme)
         WPx[n]= - (int_WP[i0+1,j0,n]-int_WP[i0,j0,n])/(dx)
@@ -302,13 +300,14 @@ import solver_module as Wsol
 #--- Obtain impedance Z with Fourier transform DFT
 print('Obtaining longitudinal impedance...')
 # Obtain charge distribution as a function of s, normalized
-fmax=c/sigmaz/2.95
-charge_dist_s=np.interp(s, s_charge_dist , charge_dist_cst/max(charge_dist_cst)) 
+fmax=1.2*c/sigmaz/3
+q=1e-9 #[C], TODO: save in the dict
+lambdas=np.interp(s, s_charge_dist , charge_dist_cst/q) 
 # Obtain the ffts and frequency bins
-lambdaf, f=Wsol.FFT(charge_dist_s, ds/c, fmax=fmax, r=10.0)
+lambdaf, f=Wsol.FFT(lambdas, ds/c, fmax=fmax, r=10.0)
 WPf, f=Wsol.FFT(WP, ds/c, fmax=fmax, r=10.0)
 # Obtain the impedance
-Z = abs(- WPf / lambdaf) 
+Z = abs(- WPf / lambdaf) * 3400
 
 
 #--------------------------------#
@@ -322,12 +321,12 @@ print('Obtaining transverse impedance...')
 # Obtain the ffts and frequency bins
 WPxf, f=Wsol.FFT(WPx, ds/c, fmax=fmax, r=10.0)
 # Obtain the impedance
-Zx = abs(- WPxf / lambdaf) 
+Zx = abs(- WPxf / lambdaf) * 3400
 #---Zy⊥(w)
 # Obtain the ffts and frequency bins
 WPyf, f=Wsol.FFT(WPy, ds/c, fmax=fmax, r=10.0)
 # Obtain the impedance
-Zy = abs(- WPyf / lambdaf) 
+Zy = abs(- WPyf / lambdaf) * 3400
 
 #--------------------------------#
 
@@ -338,8 +337,8 @@ print('Calculation terminated in %ds' %totalt)
 
 # Save the data 
 
-xsource, ysource = 3e-3, 3e-3
-xtest, ytest = 0e-3, 0e-3
+xsource, ysource = 0e-3, 0e-3
+xtest, ytest = 3e-3, 3e-3
 
 data = { 'WP' : WP, 
          's' : s,
@@ -365,11 +364,11 @@ with open(out_folder + 'wake_solver.txt', 'wb') as handle:
 #--------------------------#
 import plot_module as Wplt
 
-cst_path='/mnt/c/Users/elefu/Documents/CERN/PyWake/Scripts/CST/'
+cst_path='/mnt/c/Users/elefu/Documents/CERN/WAKIS/Scripts/CST/'
 
-Wplt.plot_PyWake(data=data, 
+Wplt.plot_WAKIS(data=data, 
                 cst_data=Wplt.read_CST_out(cst_path), 
                 flag_compare_cst=True, 
-                flag_normalize=True
+                flag_normalize=False
                 )
 

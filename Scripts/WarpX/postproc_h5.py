@@ -21,7 +21,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import pickle
 import h5py
 
-out_folder='out/'
+out_folder='runs/out/'
 #out_folder='runs/out_cub_cav_quadrupolar/'
 flag_rho_3d = False
 
@@ -38,7 +38,7 @@ with open(out_folder+'input_data.txt', 'rb') as handle:
 x=input_data.get('x')
 y=input_data.get('y')
 z=input_data.get('z')
-tot_nsteps=input_data.get('tot_nsteps')
+nt=input_data.get('nt')
 init_time=input_data.get('init_time')
 nx=input_data.get('nx')
 ny=input_data.get('ny')
@@ -91,7 +91,7 @@ Ez_0=hf_Ez.get(dataset[0])
 shapex=Ez_0.shape[0]  
 shapey=Ez_0.shape[1] 
 shapez=Ez_0.shape[2] 
-z_Ez=z[nz//2-shapez//2:nz//2+shapez//2+1]
+z_Ez=z[len(z)//2-shapez//2:len(z)//2+shapez//2+1]
 print('Ez field is stored in matrices '+str(Ez_0.shape)+' in '+str(int(size_hf))+' datasets')
 
 # Extract field on axis Ez (z,t)
@@ -99,7 +99,7 @@ Ez_t=[]
 Ez_t1=[]
 Ez_t2=[]
 Ez_t3=[]
-for n in range(tot_nsteps):
+for n in range(nt):
     Ez=hf_Ez.get(dataset[n]) # [V/m]
     Ez_t.append(np.array(Ez[shapex//2, shapey//2,:])) # [V/m]
     Ez_t1.append(np.array(Ez[-3, -3,:])) # [V/m]
@@ -130,7 +130,7 @@ print('Charge distribution map is stored in array of length '+str(rho_0.shape[0]
 
 # Extract charge distribution [C/m] lambda(z,t)
 charge_dist=[]
-for n in range(tot_nsteps):
+for n in range(nt):
     rho=hf_rho.get(dataset_rho[n]) # [C/m3]
     if flag_rho_3d:
         rho_nx, rho_ny, rho_nz = rho.shape
@@ -159,7 +159,7 @@ with open(out_folder+'field_data.txt', 'wb') as handle:
 '''
 #--- loop with countours of electric field
 plt.ion()
-for n in range(tot_nsteps):
+for n in range(nt):
     if n % 1 == 0:
         Ez=hf_Ez.get(dataset[n])
         #--- Plot Ez - x cut 
@@ -205,7 +205,7 @@ plt.close()
 #----------------------#
 
 # Retrieve CST data from dictionary
-cst_path='/mnt/c/Users/elefu/Documents/CERN/GitHub/PyWake/Scripts/CST/'
+cst_path='/mnt/c/Users/elefu/Documents/CERN/GitHub/WAKIS/Scripts/CST/'
 #--- read the cst dictionary
 with open(cst_path+'cst_out.txt', 'rb') as handle:
   cst_data = pickle.loads(handle.read())
@@ -247,12 +247,12 @@ freq_cst=cst_data.get('freq_cst')
 #     1D  Plots     #
 #-------------------#
 
-print('Cavity center is at z = '+str(z[nz//2])+'m')
+print('Cavity center is at z = '+str(z[len(z)//2])+'m')
 
 #--- Plot electric Ez field on axis 
 fig50 = plt.figure(50, figsize=(6,4), dpi=200, tight_layout=True)
 ax=fig50.gca()
-ax.plot((np.array(t)-9*dz/c)*1.0e9, Ez_t[shapez//2, :], color='g', label='Ez Warpx')
+ax.plot((np.array(t))*1.0e9, Ez_t[shapez//2, :], color='g', label='Ez Warpx')
 ax.plot(np.array(t_cst)*1.0e9, Ez_cst[int(nz_cst/2), :], lw=0.8, color='black', ls='--',label='Ez CST')
 ax.set(title='Electric field at cavity center',
         xlabel='t [ns]',
@@ -287,7 +287,7 @@ plt.show()
 '''
 fig60 = plt.figure(60, figsize=(6,4), dpi=200, tight_layout=True)
 ax=fig60.gca()
-ax.plot(np.array(t)*1.0e9, charge_dist[nz//2, :]*c, color='r', label='$\lambda$(t) Warpx')
+ax.plot(np.array(t)*1.0e9, charge_dist[len(z)//2, :]*c, color='r', label='$\lambda$(t) Warpx')
 ax.plot(np.array(t_charge_dist)*1.0e9+0.2, charge_dist_time, lw=0.8, color='black', ls='--',label='$\lambda$(t) CST') #correct with -0.2
 ax.set(title='Charge distribution at cavity center',
         xlabel='t [ns]',
@@ -302,8 +302,8 @@ plt.show()
 #--- Plot charge distribution [normalized]
 fig60 = plt.figure(60, figsize=(6,4), dpi=200, tight_layout=True)
 ax=fig60.gca()
-factor=max(charge_dist_time)/max(charge_dist[nz//2, :]*c)
-ax.plot(np.array(t)*1.0e9, charge_dist[nz//2, :]*c*factor, color='r', label='$\lambda$(t) Warpx')
+factor=max(charge_dist_time)/max(charge_dist[len(z)//2, :]*c)
+ax.plot(np.array(t)*1.0e9, charge_dist[len(z)//2, :]*c*factor, color='r', label='$\lambda$(t) Warpx')
 ax.plot(np.array(t_charge_dist)*1.0e9+0.2, charge_dist_time, lw=0.8, color='black', ls='--',label='$\lambda$(t) CST') #correct with -0.2
 ax.set(title='Charge distribution at cavity center (normalizing factor = '+str(round(factor,3))+')',
         xlabel='t [ns]',
@@ -318,8 +318,8 @@ plt.show()
 
 fig70 = plt.figure(70, figsize=(6,4), dpi=200, tight_layout=True)
 ax=fig70.gca()
-timestep=int((z[nz//2]/c+init_time+64*1e-3/c+3.1*sigmaz/c)/dt)+1
-factor=max(charge_dist_time)/max(charge_dist[nz//2, :]*c)
+timestep=int((z[len(z)//2]/c+init_time+64*1e-3/c+3.1*sigmaz/c)/dt)+1
+factor=max(charge_dist_time)/max(charge_dist[len(z)//2, :]*c)
 ax.plot(z*1e3, charge_dist[:, timestep]*factor, color='r', label='$\lambda$(t) Warpx')
 ax.plot(s_charge_dist*1e3, charge_dist_cst, lw=0.8, color='black', ls='--',label='$\lambda$(t) CST') #correct with -0.2
 ax.set(title='Charge distribution at cavity center (normalizing factor = '+str(round(factor,3))+')',

@@ -35,54 +35,53 @@ t0 = time.time()
 ##################################
 
 # output path
-path='/mnt/c/Users/elefu/Documents/CERN/GitHub/PyWake/Scripts/WarpX/'
+path=os.getcwd() + '/runs/'
 
 # create output directory 
 out_folder=path+'out/'
 if not os.path.exists(out_folder):
     os.mkdir(out_folder)
 
-# create logfile
-sys.stdout = open(path+"out/log.txt", "w")
-
 # simulation parameters
-CFL=1.0             #Courant-Friedrichs-Levy criterion for stability
-NUM_PROC = 1        #number of mpi processors wanted to use
-unit = 1e-3         #conversion factor from input to [m]
-Wake_length=2000*unit    #Wake potential length in s [m]
+CFL = 1.0               #Courant-Friedrichs-Levy criterion for stability
+NUM_PROC = 1            #number of mpi processors wanted to use
+UNIT = 1e-3             #conversion factor from input to [m]
+Wake_length=2000*UNIT   #Wake potential length in s [m]
 
 # flags
 flag_add_diagnosis = False    #turn on and off warpx diagnostics
+flag_plot_geom = False
+flag_logfile = False
 
 # beam center 
 # ---[longitudinal impedance: beam center in 0,0]
 # ---[dipolar impedance: beam center in a,0 or 0,a or a,a]
-xsource = 3.0*unit
-ysource = 3.0*unit 
+xsource = 3.0*UNIT
+ysource = 0.0*UNIT 
 
 # test particle center 
 # ---[longitudinal impedance: test axis in 0,0]
 # ---[quadrupolar impedance: test axis in a,0 or 0,a or a,a]
-xtest = 0.0*unit   
-ytest = 0.0*unit
+xtest = 0.0*UNIT   
+ytest = 0.0*UNIT
 
 ##################################
 # Define the geometry
 ##################################
 
 # width of the rectangular beam pipe (x direction)
-w_pipe = 15*unit
+w_pipe = 15*UNIT
 # height of the rectangular beam pipe (y direction)
-h_pipe = 15*unit
+h_pipe = 15*UNIT
 # length of the pipe (bigger than the domain to resemble infinite length)
-L_pipe = 50*unit
+L_pipe = 50*UNIT
 
 # width of the rectangular beam pipe (x direction)
-w_cav = 50*unit
+w_cav = 50*UNIT
 # height of the rectangular beam pipe (y direction)
-h_cav = 50*unit
+h_cav = 50*UNIT
 # length of the pipe (bigger than the domain to resemble infinite length)
-L_cav = 30*unit
+L_cav = 30*UNIT
 
 
 ##################################
@@ -94,12 +93,12 @@ ny = 64
 nz = 256
 
 # mesh bounds for domain. Last 10 cells are PML
-xmin = -32*unit
-xmax = 32*unit
-ymin = -32*unit
-ymax = 32*unit
-zmin = -128*unit 
-zmax = 128*unit
+xmin = -32*UNIT
+xmax = 32*UNIT
+ymin = -32*UNIT
+ymax = 32*UNIT
+zmin = -128*UNIT 
+zmax = 128*UNIT
 
 # mesh cell widths
 dx=(xmax-xmin)/nx
@@ -155,7 +154,6 @@ solver = picmi.ElectromagneticSolver(grid=grid, method='Yee', cfl=CFL,
                                      warpx_do_pml_j_damping = True) #Turned True for the pml damping
 
 # Define the implicit function for the boundary conditions
-flag_plot_geom= True
 embedded_boundary = picmi.EmbeddedBoundary(
     implicit_function="w=w_pipe+(w_cav-w_pipe)*(z<L_cav/2)*(z>-L_cav/2); h=h_pipe+(h_cav-h_pipe)*(z<L_cav/2)*(z>-L_cav/2); max(max(x-w/2,-w/2-x),max(y-h/2,-h/2-y))",
     w_cav=w_cav, 
@@ -188,7 +186,6 @@ if flag_add_diagnosis:
         data_list = ['Ez', 'rho'],
         write_dir = 'out/diags',
         warpx_file_prefix = 'warpx_diag',
-        #warpx_format = 'openpmd'
     )
 
 
@@ -198,16 +195,16 @@ if flag_add_diagnosis:
 
 # obtain number of timesteps needed for the wake length
 # time when the bunch enters the cavity
-init_time = 5.332370636221942e-10 
+init_time = 5.332370636221942e-10 + (zmin+L_pipe)/c #[s]
 
 # timestep size
-dt=(1/c)/np.sqrt((1/dx)**2+(1/dy)**2+(1/dz)**2)
+dt=CFL*(1/c)/np.sqrt((1/dx)**2+(1/dy)**2+(1/dz)**2)
 
 # timesteps needed to simulate
 max_steps=int((Wake_length+init_time*c+(zmax-zmin))/dt/c)
 
 print('Timesteps to simulate = '+ str(max_steps) + ' with timestep dt = ' + str(dt))
-print('Wake length = '+str(Wake_length/unit)+ ' mm')
+print('Wake length = '+str(Wake_length/UNIT)+ ' mm')
 
 sim = picmi.Simulation(
     solver = solver,
@@ -309,16 +306,21 @@ callbacks.installparticleinjection(nonlinearsource)
 # simulation run
 ##########################
 
+if flag_logfile:
+    # create logfile
+    sys.stdout = open(path+"out/log.txt", "w")
+
 if flag_add_diagnosis:
     sim.step(max_steps) #runs all the timesteps
 
 if not flag_add_diagnosis: 
     # Step by step running + saving data in hdf5 format
+    t=[]
+    rho_t=[]
 
     # Create h5 files overwriting previous ones
     #---Ez file
     hf_name='Ez.h5'
-
     if os.path.exists(out_folder+hf_name):
         os.remove(out_folder+hf_name)
 
@@ -326,30 +328,15 @@ if not flag_add_diagnosis:
 
     #---rho file
     hf_name='rho.h5'
-
     if os.path.exists(out_folder+hf_name):
         os.remove(out_folder+hf_name)
 
     hf_rho = h5py.File(out_folder+hf_name, 'w')
 
-    # Create empty lists to store arrays 
-    Ez_t=[]
-    Ex_t=[]
-    Ey_t=[]
-    Bx_t=[]
-    By_t=[]
-    rho_t=[]
-    t=[]
-
     # Define the integration path for test particle (xtest, ytest)
-    #---search for the index
     ixtest=int((xtest-x[0])/dx)
     iytest=int((ytest-y[0])/dy)
-    #---print check
-    print('Field will be extracted around ('+str(round(x[ixtest]/unit,3))+','+str(round(y[iytest]/unit,3))+',z,t) [mm]')
-    #---save the n adjacent cells in each direction
-    n_adj_cells=int(3) #number of adjacent cells to save
-
+    print('Field will be extracted around ('+str(round(x[ixtest]/UNIT,3))+','+str(round(y[iytest]/UNIT,3))+',z,t) [mm]')
 
     # Perform the simulation
     for n_step in range(max_steps):
@@ -359,46 +346,44 @@ if not flag_add_diagnosis:
 
         # Extract the electric field from all processors
         Ez = fields.EzWrapper().get_fabs(0,2,include_ghosts=False)[0]
-        '''
-        Ex = fields.ExWrapper().get_fabs(0,2,include_ghosts=False)[0]
-        Ey = fields.EyWrapper().get_fabs(0,2,include_ghosts=False)[0]
-        # Extract the magnetic field from all processors
-        Bx = fields.BxWrapper().get_fabs(0,2,include_ghosts=False)[0]
-        By = fields.ByWrapper().get_fabs(0,2,include_ghosts=False)[0]
-        '''
         # Extract charge density
         rho = fields.JzWrapper().get_fabs(0,2,include_ghosts=False)[0]/(beam_beta*c)  #[C/m3]
         # Extraxt the timestep size
         dt = libwarpx.libwarpx_so.warpx_getdt(0)
+
         t.append(n_step*dt)
+        rho_t.append(rho[ixsource,iysource,:])
 
         # Store the 3D Ez matrix into a hdf5 dataset
         if n_step == 0:
             prefix='0'*5
             # Saves the Ez field in a prism along the z axis 3 cells wide
-            hf_Ez.create_dataset('Ez_'+prefix+str(n_step), data=Ez[ixtest-n_adj_cells:ixtest+n_adj_cells+1 , iytest-n_adj_cells:iytest+n_adj_cells+1,nz//2-50:nz//2+51])
+            hf_Ez.create_dataset('Ez_'+prefix+str(n_step), data=Ez[ixtest-1:ixtest+2 , 
+                                                                   iytest-1:iytest+2 , 
+                                                                   int(nz/2-L_pipe/dz):int(nz/2+L_pipe/dz+1)] )
             hf_rho.create_dataset('rho_'+prefix+str(n_step), data=rho[ixsource,iysource,:])
-            #hf_rho.create_dataset('rho_'+prefix+str(n_step), data=rho[ixsource-n_adj_cells:ixsource+n_adj_cells+1 , iysource-n_adj_cells:iysource+n_adj_cells+1,:])
+
         else:
             prefix='0'*(5-int(np.log10(n_step)))
             # Saves the Ez field in a prism along the z axis 3 cells wide
-            hf_Ez.create_dataset('Ez_'+prefix+str(n_step), data=Ez[ixtest-n_adj_cells:ixtest+n_adj_cells+1 , iytest-n_adj_cells:iytest+n_adj_cells+1,nz//2-50:nz//2+51])
+            hf_Ez.create_dataset('Ez_'+prefix+str(n_step), data=Ez[ixtest-1:ixtest+2 , 
+                                                                   iytest-1:iytest+2 ,
+                                                                   int(nz/2-L_pipe/dz):int(nz/2+L_pipe/dz+1)] )
             hf_rho.create_dataset('rho_'+prefix+str(n_step), data=rho[ixsource,iysource,:])
-            #hf_rho.create_dataset('rho_'+prefix+str(n_step), data=rho[ixsource-n_adj_cells:ixsource+n_adj_cells+1 , iysource-n_adj_cells:iysource+n_adj_cells+1,:])
-
-        '''
-        # Save field arrays [NOT WORKING]: saves the same value all the timesteps
-        Ez_t.append(Ez[ixtest,iytest,:])
-        Ex_t.append(Ex[ixtest,iytest,:])
-        Ey_t.append(Ey[ixtest,iytest,:]) 
-        Bx_t.append(Bx[ixtest,iytest,:])
-        By_t.append(By[ixtest,iytest,:])
-        rho_t.append(rho[ixtest,iytest,:])
-        '''
-
+            
     # Close the hdf5 files
     hf_Ez.close()
     hf_rho.close()
+
+    #Create np.arrays
+    rho_t=np.transpose(np.array(rho_t)) #(z,t)
+    t=np.array(t)
+
+    # Get charge distribution
+    charge_dist=rho_t*dx*dy                     #[C/m]
+    timestep=np.argmax(charge_dist[nz//2, :])   #max at cavity center
+    qz=np.sum(charge_dist[:,timestep])*dz       #charge along the z axis
+    charge_dist = charge_dist[int(nz/2-L_pipe/dz):int(nz/2+L_pipe/dz+1), :]*bunch_charge/qz    #total charge in the z axis
 
 
 # Calculate simulation time
@@ -411,49 +396,30 @@ sys.stdout.close()
 #    Generate output     #
 ##########################
 
-# Create dictionary with input data
-input_data = { 'init_time' : -t_offs,
-         't' : np.array(t),
-         'x' : x,
-         'y' : y,
-         'z' : z,
-         'tot_nsteps' : max_steps,
+# Create dictionary with input data. SI UNITs: [m], [s], [C]
+input_data = { 'init_time' : -t_offs, 
+         't' : t,
+         'x' : x[ixtest-1:ixtest+2],   
+         'y' : y[iytest-1:iytest+2],
+         'z' : z[int(nz/2-L_pipe/dz):int(nz/2+L_pipe/dz+1)],
+         'nt' : max_steps,
          'nx' : nx,
          'ny' : ny,
          'nz' : nz,
-         'w_cavity' : w_cav,
-         'h_cavity' : h_cav,
-         'L_cavity' : L_cav,
-         'w_pipe' : w_pipe,
-         'h_pipe' : h_pipe,
          'L_pipe' : L_pipe,
          'sigmaz' : sigmaz,
          'xsource' : xsource,
          'ysource' : ysource,
          'xtest' : xtest,
          'ytest' : ytest,
-         'ixtest' : ixtest,
-         'iytest' : iytest,
-         'n_adj_cells' : n_adj_cells,
+         'q' : bunch_charge, 
+         'charge_dist' : charge_dist,
+         'unit' : UNIT,
+         'x0' : x,
+         'y0' : y,
+         'z0' : z
         }
 
 # write the input dictionary to a txt using pickle module
 with open(out_folder+'input_data.txt', 'wb') as handle:
-  pk.dump(input_data, handle)
-
-'''
-# Create dictionary with fields data [NOT WORKING]
-field_data = {  'Ez' : np.transpose(np.array(Ez_t)),
-                'Ex' : np.transpose(np.array(Ex_t)),
-                'Ey' : np.transpose(np.array(Ey_t)),
-                'Bx' : np.transpose(np.array(Bx_t)),
-                'By' : np.transpose(np.array(By_t)),
-                'rho' : np.transpose(np.array(rho_t)),
-                't' : np.array(t),
-            }
-
-
- # write the fields dictionary to a txt using pickle module
-with open(out_folder+'field_data.txt', 'wb') as handle:
-  pk.dump(field_data, handle)
-'''
+    pk.dump(input_data, handle)
