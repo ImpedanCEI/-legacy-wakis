@@ -1,16 +1,25 @@
 '''
-Auxiliary functions for WAKIS results plotting:
-- Longitudinal wake potential
-- Longitudinal Impedance 
-- Transverse wake potential
-- Transverse Impedance
+---------------------
+| WAKIS plot module |
+---------------------
+Auxiliary functions for WAKIS results plotting
+
+Functions: [TODO]
+---------
+- a
+- b
+- c
+
+Requirements:
+------------- 
+pip install matplotlib, numpy, h5py, scipy
 '''
+import os 
+import pickle as pk
 
 import numpy as np
-import os 
 import matplotlib.pyplot as plt
 import scipy.constants as spc  
-import pickle as pk
 import h5py as h5py
 
 # Global variables

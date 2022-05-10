@@ -1,19 +1,27 @@
 '''
-WAKIS solver.py
+-----------------------
+| WAKIS solver module |
+-----------------------
+Functions for WAKIS solver
 
-Contains auxiliary functions for obtaining:
-- Longitudinal wake potential
-- Longitudinal Impedance 
-- Transverse wake potential
-- Transverse Impedance
+Functions: [TODO]
+---------
+- a
+- b
+- c
+
+Requirements:
+------------- 
+pip install matplotlib, numpy, h5py, scipy
+
 '''
+import os 
+import pickle as pk
 
 import numpy as np
-import scipy.fftpack as fftpack
-import os 
-from scipy.constants import c, pi  
-import pickle as pk
+import scipy.fftpack as fftpack  
 import h5py 
+from scipy.constants import c, pi
 
 UNIT = 1e-3 #conversion to m
 OUT_PATH = os.getcwd() + '/'
