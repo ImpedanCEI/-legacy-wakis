@@ -1,8 +1,8 @@
 '''
----------------------
-| WAKIS plot module |
----------------------
-Auxiliary functions for WAKIS results plotting
+------------------------
+| WAKIS process module |
+------------------------
+Functions to pre-process Wakis input and post-process the output
 
 Functions: [TODO]
 ---------
@@ -27,7 +27,7 @@ UNIT = 1e-3 #conversion to m
 CST_PATH = '/mnt/c/Users/elefu/Documents/CERN/WAKIS/Scripts/CST/' 
 OUT_PATH = os.getcwd() + '/' +'runs/out/'
 
-# Plot global parameters
+# Global parameters for plotting
 plt.rcParams.update({'font.size': 12})
 
 def read_WarpX(out_path=OUT_PATH):
