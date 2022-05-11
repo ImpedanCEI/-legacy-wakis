@@ -1,7 +1,7 @@
-from . import geom, plot, solver
+from . import geom, proc, solver
 
 from .geom import *
 
-from .plot import *
+from .proc import *
 
 from .solver import *

@@ -1,5 +1,5 @@
 '''
-cst_to_dict.py
+cst_to_h5.py
 
 File for postprocessing 3d logfiles from cst
 
@@ -10,13 +10,7 @@ File for postprocessing 3d logfiles from cst
 '''
 
 import numpy as np
-import matplotlib.pyplot as plt
-import time
-import sys
-import glob, os
-import scipy as sc  
-from scipy import constants
-from copy import copy
+import glob, os 
 import pickle as pk
 import h5py
 

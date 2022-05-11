@@ -15,8 +15,7 @@ import time
 import sys
 import glob, os
 import scipy as sc  
-from scipy import constants
-from copy import copy
+from scipy.constants import c
 import pickle as pk
 
 c=constants.c
@@ -71,7 +70,10 @@ for file in sorted(glob.glob("data/Ez/*.txt")):
 print('Finished scanning files')
 
 
-#--- read charge distribution file
+#--------------------------------#
+#   Charge distribution files    #
+#--------------------------------#   
+
 charge_dist=[]
 charge_dist_time=[]
 charge_dist_spectrum=[]
