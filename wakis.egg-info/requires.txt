@@ -1,0 +1,5 @@
+matplotlib
+numpy
+scipy
+scikit-image>=0.17
+h5py

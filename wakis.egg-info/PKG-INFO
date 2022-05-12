@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: wakis
+Version: 0.0.2
+Summary: Wake potential and Impedance from pre-computed fields
+Home-page: https://github.com/ImpedanCEI/WAKIS
+Author: Elena de la Fuente Garcia
+Author-email: elena.de.la.fuente.garcia@cern.ch
+Project-URL: Bug Tracker, https://github.com/ImpedanCEI/WAKIS/issues
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+
+# WAKIS
+
+WAKIS stands for (WA)ke and (I)mpedance (S)olver. It is a postprocessing tool that can obtain the longitudinal and transverse Wake Potential and Impedance from pre-computed electromagnetic fields. This magnitudes are important to quantify the losses of accelerator structures with a passing beam. 
+
+More information about theory, installation and usage can be found in the [Wiki](https://github.com/ImpedanCEI/WAKIS/wiki).
+

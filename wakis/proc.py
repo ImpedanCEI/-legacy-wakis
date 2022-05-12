@@ -23,7 +23,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import h5py as h5py
 
-# Default working directory path
+# Default working directory path for outputs
 cwd = os.getcwd() + '/'
 
 # Global parameters for plotting
@@ -44,6 +44,7 @@ def read_WAKIS_in(path=cwd):
     -----------
     - path: path to the wakis.in input file. 
     '''
+
     if os.path.exists(path+'wakis.in'):
         with open(path+'wakis.in') as handle:
             data = js.load(handle)
@@ -62,9 +63,10 @@ def read_Ez(out_path=cwd, filename='Ez.h5'):
     - out_path = cwd [default] path to the Ez.h5 file. The default is the current working directory 
     - filename = 'Ez.h5' [default]. Specify the name of the Ez file
     '''
+
     hf = h5py.File(out_path+filename, 'r')
-    print('Reading the h5 file: '+ out_path+filename + ' ...')
-    print('    - Size of the file: '+str(round((os.path.getsize(out_path+filename)/10**9),2))+' Gb')
+    print('[PROGRESS] Reading the h5 file: '+ out_path+filename + ' ...')
+    print('[INFO] Size of the file: '+str(round((os.path.getsize(out_path+filename)/10**9),2))+' Gb')
 
     # get number of datasets
     size_hf=0.0
@@ -80,7 +82,8 @@ def read_Ez(out_path=cwd, filename='Ez.h5'):
     shapex=Ez_0.shape[0]  
     shapey=Ez_0.shape[1] 
     shapez=Ez_0.shape[2] 
-    print('    - Ez field is stored in a matrix with shape '+str(Ez_0.shape)+' in '+str(int(size_hf))+' datasets')
+
+    print('[INFO] Ez field is stored in a matrix with shape '+str(Ez_0.shape)+' in '+str(int(size_hf))+' datasets')
 
     return hf, dataset
 
@@ -101,8 +104,9 @@ def preproc_WarpX(warpx_path):
     - data: dicionary stored in wakis.in file
 
     '''
-    if os.path.exists(path+'warpx.out'):
-        with open(out_path+'warpx.out', 'rb') as handle:
+
+    if os.path.exists(warpx_path+'warpx.out'):
+        with open(warpx_path+'warpx.out', 'rb') as handle:
             data = js.load(handle.read())
     else: 
         print('[! WARNING] warpx.out file not found')
@@ -123,8 +127,7 @@ def preproc_WarpX(warpx_path):
 
     return data
 
-def preproc_CST(cst_path, n_transverse_cells, n_longitudinal_cells,   
-                hf_name='Ez.h5', out_path=cwd):
+def preproc_CST(cst_path, hf_name='Ez.h5', out_path=cwd, **kwargs):
     '''
     Pre-process the CST 3D field monitor output 
 
@@ -133,10 +136,12 @@ def preproc_CST(cst_path, n_transverse_cells, n_longitudinal_cells,
     - data_path: specify the path where the Ez and charge distribution data is.
                  [!] The folder containing the 3d Ez data should be named '3d'
                  [!] The file containing the charge distribution data should be named 'lambda.txt' 
-
-    - n_transverse_cells: number of transverse cells used in the field monitor. Type: int
-    - n_longitudinal_cell: number of longitudinal cells used in the field monitor. Type: int
-                           can be obtained from the output file with rows/n_transverse_cells**2
+    - **kwargs: input the rest of the required data if not stored already in cst.out
+        - 'q': Beam charge, default 1e-9 [C]
+        - 'sigmaz': Beam longitudinal sigma, default 0.02 [m]
+        - 'unit': Unit conversion, default 1e-3 [m]
+        - 'xsource', 'ysource': Beam position in transverse plane, default 0.0 [m]
+        - 'xtest', 'ytest': Integration path position in transverse plane, default 0.0 [m]
 
     Default Parameters:
     -------------------
@@ -153,6 +158,11 @@ def preproc_CST(cst_path, n_transverse_cells, n_longitudinal_cells,
 
     '''
 
+    # Save kwargs in cst.out
+    if bool(kwargs):
+        with open('cst.out', 'w') as fp:
+            js.dump(kwargs, fp,  indent=4)
+
     # Pre-process 3d Ez field data
     preproc_Ez(cst_path=cst_path,
                       n_transverse_cells=n_transverse_cells, 
@@ -162,30 +172,9 @@ def preproc_CST(cst_path, n_transverse_cells, n_longitudinal_cells,
                       )
 
     # Charge distribution vs distance (s)
-    charge_dist=[]
-    fname = 'lambda'
-    i=0
-
-    if os.path.exists(cst_path+fname+'.txt'):
-        with open(cst_path+fname+'.txt') as f:
-            for line in f:
-                i+=1
-                columns = line.split()
-                if i>1 and len(columns)>1:
-                    charge_dist.append(float(columns[1]))
-                    distance.append(float(columns[0]))
-        # Update dictionary
-        z = data.get('z')           
-        charge_dist = np.interp(z, np.array(distance)*1.0e-3, np.array(charge_dist)) # in C/m
-
-        #close file
-        f.close()
-
-    else: 
-        print("[! WARNING] file for charge distribution not found")
+    preproc_lambda(cst_path=cst_path)
 
     # Read cst.out
-    #[TODO] implement cst.out generation
     with open(cst_path+'cst.out') as handle:
         data = js.load(handle)
 
@@ -200,17 +189,14 @@ def preproc_CST(cst_path, n_transverse_cells, n_longitudinal_cells,
     
     return data
 
-def preproc_Ez(cst_path, n_transverse_cells, n_longitudinal_cells, hf_name='Ez.h5', out_path=cwd):
+def preproc_Ez(cst_path, hf_name='Ez.h5', out_path=cwd):
     '''
     Pre-process the CST 3D field monitor output 
 
     Parameters:
     -----------
     - cst_path: specify the path where the 3d Ez data folder is.
-                 [!] The folder containing the 3d Ez data should be named '3d'
-
-    - n_transverse_cells: number of transverse cells used in the field monitor. Type: int
-    - n_longitudinal_cell: number of longitudinal cells used in the field monitor. Type: int
+                [!] The folder containing the 3d Ez data should be named '3d'
 
     Default Parameters:
     -------------------
@@ -253,6 +239,24 @@ def preproc_Ez(cst_path, n_transverse_cells, n_longitudinal_cells, hf_name='Ez.h
         ntitle=title[0]+'_'+str(num[0])+'.txt'
         os.rename(data_path+file[1], data_path+ntitle)
 
+    fnames = sorted(glob.glob(data_path+'*.txt'))
+
+    #Get the number of longitudinal and transverse cells used for Ez
+    i=0
+    with open(fnames[0]) as f:
+        lines=f.readlines()
+        n_rows = len(lines)-3 #n of rows minus the header
+        x1=lines[3].split()[0]
+
+        while True:
+            i+=1
+            x2=lines[i+3].split()[0]
+            if x1==x2:
+                break
+
+    n_transverse_cells=i
+    n_longitudinal_cells=int(n_rows/(n_transverse_cells**2))
+
     # Create h5 file 
     if os.path.exists(out_path+hf_name):
         os.remove(out_path+hf_name)
@@ -271,7 +275,7 @@ def preproc_Ez(cst_path, n_transverse_cells, n_longitudinal_cells, hf_name='Ez.h
     rows=skip 
 
     # Start scan
-    for file in sorted(glob.glob(data_path+'*.txt')):
+    for file in fnames:
         print('[PROGRESS] Scanning file '+ file + '...')
         title=file.split(data_path)
         title2=title[1].split('_')
@@ -328,7 +332,7 @@ def preproc_Ez(cst_path, n_transverse_cells, n_longitudinal_cells, hf_name='Ez.h
     with open(cst_path+'cst.out', 'w') as fp:
         js.dump(data, fp,  indent=4)
 
-    print('[! OUT] cst.out file succesfully updated')
+    print('[! OUT] cst.out file updated with field data')
     
 
 def preproc_rho(path):
@@ -336,6 +340,9 @@ def preproc_rho(path):
     Obtain charge distribution in [C/m] from the rho.h5 file
 
     '''
+    with open(path+'warpx.out', 'rb') as handle:
+            data = js.load(handle.read())
+
     hf_rho = h5py.File(path +'rho.h5', 'r')
     print("[PROGRESS] Processing rho.h5 file")
 
@@ -363,7 +370,16 @@ def preproc_rho(path):
     # Correct the maximum value so the integral along z = q
     timestep=np.argmax(bunch[nz//2, :])   #max at cavity center
     qz=np.sum(bunch[:,timestep])*dz       #charge along the z axis
-    charge_dist = bunch[:,timestep]*q/qz    #total charge in the z axis
+    charge_dist = bunch[:,timestep]*q/qz  #total charge in the z axis
+
+    # Add to dict
+    data['charge_dist'] = charge_dist
+
+    # Update cst.out with json
+    with open(cst_path+'warpx.out', 'w') as fp:
+        js.dump(data, fp,  indent=4)
+
+    print('[! OUT] warpx.out file updated with charge distribution data')
     
     return charge_dist
 
@@ -405,7 +421,7 @@ def preproc_lambda(cst_path):
     with open(cst_path+'cst.out', 'w') as fp:
         js.dump(data, fp,  indent=4)
 
-    print('[! OUT] cst.out file succesfully updated')
+    print('[! OUT] cst.out file updated with charge distribution data')
     
 def check_input(data):
     '''
@@ -413,6 +429,8 @@ def check_input(data):
     - Beam charge 'q': default 1e-9 [C]
     - Beam longitudinal sigma 'sigmaz': default 0.02 [m]
     - Unit conversion 'unit': default 1e-3 [m]
+    - Beam position in transverse plane 'xsource', 'ysource': default 0.0 [m]
+    - Integration path position in transverse plane 'xtest', 'ytest': default 0.0 [m]
     '''
     if data.get('q') is None:
         data['q']=1e-9
@@ -561,7 +579,7 @@ def contour_Ez(out_path, filename='Ez.h5', vmin=-1.0e5, vmax=1.0e5):
     # Check for 3d field
     Ez=hf.get(dataset[0])
     if Ez.shape[1] < 8:
-        raise Exception("Ez field not stored in 3D, contour will not render -> check simulation script")
+        raise Exception("[! WARNING] Ez field not stored in 3D, contour will not render")
 
     else:
         plt.ion()
@@ -582,7 +600,7 @@ def contour_Ez(out_path, filename='Ez.h5', vmin=-1.0e5, vmax=1.0e5):
         plt.close()
 
 
-def plot_charge_dist(data=read_WAKIS_out(OUT_PATH)):
+def plot_charge_dist(data):
     '''
     Plots the charge distribution λ(s) 
 
@@ -611,7 +629,7 @@ def plot_charge_dist(data=read_WAKIS_out(OUT_PATH)):
 
     return fig
 
-def plot_long_WP(data=read_WAKIS_out(out_path)):
+def plot_long_WP(data):
     '''
     Plots the longitudinal wake potential W||(s) 
 
@@ -640,7 +658,7 @@ def plot_long_WP(data=read_WAKIS_out(out_path)):
 
     return fig
 
-def plot_long_Z(data=read_WAKIS_out(out_path=OUT_PATH), 
+def plot_long_Z(data, 
                 flag_plot_Real=False, flag_plot_Imag=False, flag_plot_Abs=True):
     '''
     Plots the longitudinal impedance Z||(w)
@@ -691,7 +709,7 @@ def plot_long_Z(data=read_WAKIS_out(out_path=OUT_PATH),
     return fig
 
 
-def plot_trans_WP(data=read_WAKIS_out(out_path=OUT_PATH)):
+def plot_trans_WP(data):
     '''
     Plots the transverse wake potential Wx⊥(s), Wy⊥(s) 
 
@@ -725,7 +743,7 @@ def plot_trans_WP(data=read_WAKIS_out(out_path=OUT_PATH)):
 
     return fig
 
-def plot_trans_Z(data=read_WAKIS_out(out_path), 
+def plot_trans_Z(data, 
                  flag_plot_Real=False, flag_plot_Imag=False, flag_plot_Abs=True):
     '''
     Plots the transverse impedance Zx⊥(w), Zy⊥(w) 
@@ -803,7 +821,7 @@ def plot_trans_Z(data=read_WAKIS_out(out_path),
 
     return fig
 
-def plot_WAKIS(data=read_WAKIS_out(OUT_PATH), flag_charge_dist=False,
+def plot_WAKIS(data, flag_charge_dist=False,
                flag_plot_Real=False, flag_plot_Imag=False, flag_plot_Abs=True):
     '''
     Plot results of WAKIS wake solver in different figures
@@ -840,7 +858,7 @@ def plot_WAKIS(data=read_WAKIS_out(OUT_PATH), flag_charge_dist=False,
     else: 
         return fig1, fig2, fig3, fig4 
 
-def subplot_WAKIS(data=read_WAKIS_out(OUT_PATH), flag_charge_dist=False, flag_plot_Real=False, flag_plot_Imag=False, flag_plot_Abs=True):
+def subplot_WAKIS(data, flag_charge_dist=False, flag_plot_Real=False, flag_plot_Imag=False, flag_plot_Abs=True):
     '''
     Plot results of WAKIS wake solver in the same figure
 

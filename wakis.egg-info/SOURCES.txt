@@ -1,0 +1,16 @@
+LICENSE.txt
+MANIFEST.in
+README.md
+pyproject.toml
+setup.py
+wakis/__init__.py
+wakis/bmk.py
+wakis/geom.py
+wakis/gui.py
+wakis/proc.py
+wakis/solver.py
+wakis.egg-info/PKG-INFO
+wakis.egg-info/SOURCES.txt
+wakis.egg-info/dependency_links.txt
+wakis.egg-info/requires.txt
+wakis.egg-info/top_level.txt

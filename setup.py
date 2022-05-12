@@ -14,7 +14,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="wakis",
-    version="0.0.1",
+    version="0.0.2",
     description="Wake potential and Impedance from pre-computed fields",
     author="Elena de la Fuente Garcia",
     author_email="elena.de.la.fuente.garcia@cern.ch",
@@ -27,15 +27,14 @@ setup(
         'matplotlib',
         'numpy',
         'scipy',
-        'scikit-image>=0.17',
-        'hdf5',
+        'scikit-image >= 0.17',
+        'h5py',
     ],
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
         'Natural Language :: English',
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: BSD 3-Clause License",
         "Operating System :: OS Independent",
     ],
 

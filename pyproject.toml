@@ -1,5 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = ["setuptools>=42",
-			'numpy',
+		'numpy',
+		'matplotlib',
+		'numpy',
+		'scipy',
+		'scikit-image >= 0.17',
+		'h5py',
 			]
