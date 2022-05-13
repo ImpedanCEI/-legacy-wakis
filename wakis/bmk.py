@@ -20,12 +20,47 @@ import numpy as np
 import matplotlib.pyplot as plt
 import h5py as h5py
 
-from proc import read_WAKIS_out, read_Ez, preproc_CST
+from proc import read_WAKIS_out, read_Ez
+from solver import run_WAKIS
 
 # Global parameters for plotting
-
+cwd = os.getcwd() + '/'
 plt.rcParams.update({'font.size': 12})
-UNIT = 1e-3 #unit conversion for x-axis [m]->[mm]
+UNIT = 1e-3 
+
+def run_benchmark(cst_path, wakis_path=cwd):
+    '''
+    Runs the benchmark vs CST
+
+    Inputs:
+    -------
+    -cst.bmk file. If it does not exist in path, it is generated
+    -wakis.out file. If it does not exist in path, WAKIS is run
+    '''
+    if not os.exists(cst_path+'cst.bmk'):
+        generate_bmk(cst_path)
+
+    if not os.exists(wakis_path+'wakis.out'):
+        run_WAKIS(wakis_path)
+
+    # Plot in individual figures
+    figs = bmk_WAKIS(data=read_WAKIS_out(wakis_path), 
+                bmk=read_bmk(cst_path), 
+                flag_compare_cst=True, 
+                flag_charge_dist=False,
+                flag_plot_Real=True, 
+                flag_plot_Imag=True,
+                flag_plot_Abs=False
+                )
+
+    figs[0].savefig(out_path+'longWP_bmk.png', bbox_inches='tight')
+    figs[1].savefig(out_path+'longZ_bmk.png',  bbox_inches='tight')
+    figs[2].savefig(out_path+'transWP_bmk.png',  bbox_inches='tight')
+    figs[3].savefig(out_path+'transZ_bmk.png',  bbox_inches='tight')
+
+    if len(figs) > 4:
+        figs[4].savefig(out_path+'charge_dist_bmk.png', bbox_inches='tight')
+
 
 def read_bmk(cst_path):
     '''
@@ -96,18 +131,18 @@ def bmk_Ez(out_path, cst_path, filename='Ez.h5', flag_charge_dist=True, flag_tra
             #--- Plot Ez along z axis 
             fig = plt.figure(1, figsize=(6,4), dpi=200, tight_layout=True)
             ax=fig.gca()
-            ax.plot(np.array(z0)*1.0e3, charge_dist[:,n]/np.max(charge_dist)*np.max(Ez0)*0.4, lw=1.3, color='r', label='$\lambda $') 
-            ax.plot(z*1e3, Ez0[:, n], color='g', label='Ez(0,0,z) WarpX')
+            ax.plot(np.array(z0)/UNIT, charge_dist[:,n]/np.max(charge_dist)*np.max(Ez0)*0.4, lw=1.3, color='r', label='$\lambda $') 
+            ax.plot(z/UNIT, Ez0[:, n], color='g', label='Ez(0,0,z) WarpX')
 
             if flag_transverse_field:
-                ax.plot(z*1e3, Ez1[:, n], color='seagreen', label='Ez(0+dx, 0+dy, z) WarpX')
-                ax.plot(z*1e3, Ez2[:, n], color='limegreen', label='Ez(0+2dx, 0+2dy, z) WarpX')
+                ax.plot(z/UNIT, Ez1[:, n], color='seagreen', label='Ez(0+dx, 0+dy, z) WarpX')
+                ax.plot(z/UNIT, Ez2[:, n], color='limegreen', label='Ez(0+2dx, 0+2dy, z) WarpX')
 
             try:
                 bmk=read_bmk(cst_path)
                 z_cst=bmk.get('z_cst')
                 Ez_cst=bmk.get('Ez_cst')
-                ax.plot(z_cst*1e3, Ez_cst[:, n], lw=1.0, color='black', ls='--',label='Ez(0,0,z) CST')
+                ax.plot(z_cst/UNIT, Ez_cst[:, n], lw=1.0, color='black', ls='--',label='Ez(0,0,z) CST')
             except: 
                 print('[! WARNING] CST Ez data is not well stored and will not be plotted')
 
@@ -115,7 +150,7 @@ def bmk_Ez(out_path, cst_path, filename='Ez.h5', flag_charge_dist=True, flag_tra
                     xlabel='z [mm]',
                     ylabel='E [V/m]',         
                     ylim=(-np.max(Ez0)*1.1,np.max(Ez0)*1.1),
-                    xlim=(min(z)*1e3,max(z)*1e3),
+                    xlim=(min(z)/UNIT,max(z)/UNIT),
                             )
             ax.legend(loc='best')
             ax.grid(True, color='gray', linewidth=0.2)
@@ -147,12 +182,12 @@ def bmk_charge_dist(data, bmk):
     # Plot charge distribution λ(s) & comparison with CST 
     fig = plt.figure(1, figsize=(8,5), dpi=150, tight_layout=True)
     ax=fig.gca()
-    ax.plot(s*1.0e3, lambdas, lw=1.2, color='red', label='$\lambda$(s)')
-    ax.plot(s_cst*1.0e3, lambda_cst, lw=1, color='red', ls='--', label='$\lambda$(s) CST')
+    ax.plot(s/UNIT, lambdas, lw=1.2, color='red', label='$\lambda$(s)')
+    ax.plot(s_cst/UNIT, lambda_cst, lw=1, color='red', ls='--', label='$\lambda$(s) CST')
     ax.set(title='Charge distribution $\lambda$(s)',
             xlabel='s [mm]',
             ylabel='$\lambda$(s) [C/m]',
-            xlim=(min(s*1.0e3), np.max(s*1.0e3))
+            xlim=(min(s/UNIT), np.max(s/UNIT))
             )
     ax.legend(loc='best')
     ax.grid(True, color='gray', linewidth=0.2)
@@ -181,12 +216,12 @@ def bmk_long_WP(data, bmk):
     # Plot longitudinal wake potential W||(s) & comparison with CST 
     fig = plt.figure(1, figsize=(8,5), dpi=150, tight_layout=True)
     ax=fig.gca()
-    ax.plot(s*1.0e3, WP, lw=1.2, color='orange', label='$W_{||}$(s) from WAKIS')
-    ax.plot(s_cst*1e3, WP_cst, lw=1.2, color='black', ls='--', label='$W_{||}$(s) CST')
+    ax.plot(s/UNIT, WP, lw=1.2, color='orange', label='$W_{||}$(s) from WAKIS')
+    ax.plot(s_cst/UNIT, WP_cst, lw=1.2, color='black', ls='--', label='$W_{||}$(s) CST')
     ax.set(title='Longitudinal Wake potential $W_{||}$(s)',
             xlabel='s [mm]',
             ylabel='$W_{||}$(s) [V/pC]',
-            xlim=(min(s*1.0e3), np.amin((np.max(s*1.0e3), np.max(s_cst*1.0e3)))),
+            xlim=(min(s/UNIT), np.amin((np.max(s/UNIT), np.max(s_cst/UNIT)))),
             ylim=(min(WP)*1.2, max(WP)*1.2)
             )
     ax.legend(loc='lower right')
@@ -332,16 +367,16 @@ def bmk_trans_WP(data, bmk):
     fig = plt.figure(3, figsize=(8,5), dpi=150, tight_layout=True)
     ax=fig.gca()
     # - Wx⊥(s)
-    ax.plot(s_cst*1.0e3, WPx_cst, lw=1, color='g', ls='--', label='Wx⊥(s) from CST')
-    ax.plot(s*1.0e3, WPx, lw=1.2, color='g', label='Wx⊥(s) from WAKIS')
+    ax.plot(s_cst/UNIT, WPx_cst, lw=1, color='g', ls='--', label='Wx⊥(s) from CST')
+    ax.plot(s/UNIT, WPx, lw=1.2, color='g', label='Wx⊥(s) from WAKIS')
     # - Wy⊥(s)
-    ax.plot(s_cst*1.0e3, WPy_cst, lw=1, color='magenta', ls='--', label='Wy⊥(s) from CST')
-    ax.plot(s*1.0e3, WPy, lw=1.2, color='magenta', label='Wy⊥ from WAKIS(s)')
+    ax.plot(s_cst/UNIT, WPy_cst, lw=1, color='magenta', ls='--', label='Wy⊥(s) from CST')
+    ax.plot(s/UNIT, WPy, lw=1.2, color='magenta', label='Wy⊥ from WAKIS(s)')
 
-    ax.set(title='Transverse Wake potential W⊥(s) \n xsource, ysource = '+str(xsource*1e3)+' mm | xtest, ytest = '+str(xtest*1e3)+' mm',
+    ax.set(title='Transverse Wake potential W⊥(s) \n xsource, ysource = '+str(xsource/UNIT)+' mm | xtest, ytest = '+str(xtest/UNIT)+' mm',
             xlabel='s [mm]',
             ylabel='$W_{⊥}$ [V/pC]',
-            xlim=(min(s*1.0e3), np.max(s*1.0e3)),
+            xlim=(min(s/UNIT), np.max(s/UNIT)),
             )
     ax.legend(loc='best')
     ax.grid(True, color='gray', linewidth=0.2)
@@ -350,7 +385,7 @@ def bmk_trans_WP(data, bmk):
     return fig
 
 def bmk_trans_Z(data, bmk, flag_normalize=False):
-	'''
+    '''
     Plots the transverse Impedance Zx⊥(w), Zy⊥(w) and compares it with CST wake solver results
 
     Parameters:
@@ -486,12 +521,12 @@ def bmk_charge_dist(data, bmk):
     # Plot charge distribution λ(s) & comparison with CST 
     fig = plt.figure(1, figsize=(8,5), dpi=150, tight_layout=True)
     ax=fig.gca()
-    ax.plot(s*1.0e3, lambdas, lw=1.2, color='red', label='$\lambda$(s)')
-    ax.plot(s_cst*1.0e3, lambda_cst, lw=1, color='red', ls='--', label='$\lambda$(s) CST')
+    ax.plot(s/UNIT, lambdas, lw=1.2, color='red', label='$\lambda$(s)')
+    ax.plot(s_cst/UNIT, lambda_cst, lw=1, color='red', ls='--', label='$\lambda$(s) CST')
     ax.set(title='Charge distribution $\lambda$(s)',
             xlabel='s [mm]',
             ylabel='$\lambda$(s) [C/m]',
-            xlim=(min(s*1.0e3), np.max(s*1.0e3))
+            xlim=(min(s/UNIT), np.max(s/UNIT))
             )
     ax.legend(loc='best')
     ax.grid(True, color='gray', linewidth=0.2)
@@ -538,671 +573,648 @@ def bmk_WAKIS(data, bmk, flag_normalize=False, flag_charge_dist=False,
 
 
 def generate_bmk(cst_path):
-	'''
-	Stores CST wake solver output data in a dictionary to perform the benchmark
+    '''
+    Stores CST wake solver output data in a dictionary to perform the benchmark
 
-	Parameters
+    Parameters
     ---------- 
     - cst_path: path to the folder containing the benchmark files in .txt format
 
     Filenames supported
     -------------------
     - Charge distribution: 'lambda'
-	- Longitudinal wake potential: 'WP', 'indirect_interf_WP', 'indirect_test_WP'
-	- Transverse wake potential: 'WPx', 'WPy', 'WPx_dipolar', 'WPy_dipolar', 'WPx_dipolarX', 'WPy_dipolarX', 'WPx_dipolarY', 'WPy_dipolarY',
-	    						 'WPx_quadrupolar', 'WPy_quadrupolar', 'WPx_quadrupolarX', 'WPy_quadrupolarX', 'WPx_quadrupolarY', 'WPy_quadrupolarY'
-	- Longitudinal impedance: 'Z', 'ReZ', 'ImZ'
-	- Transverse impedance: 'Zx', 'Zy', 'Zx_dipolar', 'Zy_dipolar', 'Zx_dipolarX', 'Zy_dipolarX', 'Zx_dipolarY', 'Zy_dipolarY',
-	    				    'Zx_quadrupolar', 'Zy_quadrupolar', 'Zx_quadrupolarX', 'Zy_quadrupolarX', 'Zx_quadrupolarY', 'Zy_quadrupolarY'
-	Output
-	------
-	- 'cst.bmk' file containing the data in a dictionary. 
-		To retrieve it use data=read_bmk(cst_path)
-		To access the dictionary keys use data.keys()
-	'''
+    - Longitudinal wake potential: 'WP', 'indirect_interf_WP', 'indirect_test_WP'
+    - Transverse wake potential: 'WPx', 'WPy', 'WPx_dipolar', 'WPy_dipolar', 'WPx_dipolarX', 'WPy_dipolarX', 'WPx_dipolarY', 'WPy_dipolarY',
+                                 'WPx_quadrupolar', 'WPy_quadrupolar', 'WPx_quadrupolarX', 'WPy_quadrupolarX', 'WPx_quadrupolarY', 'WPy_quadrupolarY'
+    - Longitudinal impedance: 'Z', 'ReZ', 'ImZ'
+    - Transverse impedance: 'Zx', 'Zy', 'Zx_dipolar', 'Zy_dipolar', 'Zx_dipolarX', 'Zy_dipolarX', 'Zx_dipolarY', 'Zy_dipolarY',
+                            'Zx_quadrupolar', 'Zy_quadrupolar', 'Zx_quadrupolarX', 'Zy_quadrupolarX', 'Zx_quadrupolarY', 'Zy_quadrupolarY'
+    Output
+    ------
+    - 'cst.bmk' file containing the data in a dictionary. 
+        To retrieve it use data=read_bmk(cst_path)
+        To access the dictionary keys use data.keys()
+    '''
     data = {}
 
     #--------------------------------#
     #    Electric field Ez files     #
     #--------------------------------# 
 
-	#[TODO]
-
-
-	#--------------------------------#
-	#   charge distribution files    #
-	#--------------------------------#   
-
-	charge_dist=[]
-	charge_dist_time=[]
-	charge_dist_spectrum=[]
-	current=[]
-	distance=[]
-	t_charge_dist=[]
-
-	# Charge distribution in distance (s)
-	fname = 'lambda'
-	i=0
-
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname+'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                charge_dist.append(float(columns[1]))
-	                distance.append(float(columns[0]))
-
-	    charge_dist=np.array(charge_dist) # in C/m
-	    distance=np.array(distance)*1.0e-3   # in m
-
-	    #close file
-	    f.close()
-
-	    #save in dict
-	    data['charge_dist_cst']=charge_dist
-	    data['s_charge_dist']=distance
-
-	#---------------------------#
-	#   Wake Potential files    #
-	#---------------------------#   
-
-	# Longitudinal wake potential [DIRECT method]
-	WP=[]
-	s_cst=[]
-
-	fname='WP'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                WP.append(float(columns[1]))
-	                s_cst.append(float(columns[0]))
-
-	    WP=np.array(WP) # in V/pC
-	    s_cst=np.array(s_cst)*1.0e-3  # in [m]
-
-	    #close file
-	    f.close()
-
-	    #save in dict
-	    data['WP_cst']=WP
-	    data['s_cst']=s_cst
-
-
-	# Longitudinal wake potential [INDIRECT method]  
-	Indirect_WP_interfaces=[]
-	Indirect_WP_testbeams=[]
-
-	fname='indirect_interf_WP'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                Indirect_WP_interfaces.append(float(columns[1]))
-
-	    Indirect_WP_interfaces=np.array(Indirect_WP_interfaces) # in V/pC
-	    f.close()
-	    data['Indirect_WP_interfaces']=Indirect_WP_interfaces
-
-	fname='indirect_test_WP'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                Indirect_WP_testbeams.append(float(columns[1]))
-
-	    Indirect_WP_testbeams=np.array(Indirect_WP_testbeams) # in V/pC
-	    f.close()
-	    data['Indirect_WP_testbeams']=Indirect_WP_testbeams
-
-	# Transverse wake potential [xytest==0] [xysource==0]
-	WPx=[]
-	WPy=[]
-
-	fname='WPx'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                WPx.append(float(columns[1]))
-
-	    WPx=np.array(WPx) # in V/pC
-	    data['WPx_cst']=WPx
-	    f.close()
-
-	fname='WPy'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                WPy.append(float(columns[1]))
-
-	    WPy=np.array(WPy) # in V/pC
-	    data['WPy_cst']=WPy
-	    f.close()
-
-	# Dipolar wake potential [xysource!=0]
-	WPx_dipolar=[]
-	WPy_dipolar=[]
-	WPx_dipolarX=[]
-	WPy_dipolarX=[]
-	WPx_dipolarY=[]
-	WPy_dipolarY=[]
-	s_cst_dipolar=[]
-
-	fname='WPx_dipolar'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                WPx_dipolar.append(float(columns[1]))
-	                s_cst_dipolar.append(float(columns[0]))
-
-	    WPx_dipolar=np.array(WPx_dipolar) # in V/pC
-	    s_cst_dipolar=np.array(s_cst_dipolar)*1.0e-3  # in [m]
-	    data['WPx_dipolar_cst']=WPx_dipolar
-	    data['s_cst_dipolar']=s_cst_dipolar
-	    f.close()
-
-	fname='WPy_dipolar'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                WPy_dipolar.append(float(columns[1]))
-
-	    WPy_dipolar=np.array(WPy_dipolar) # in V/pC
-	    data['WPy_dipolar_cst']=WPy_dipolar
-	    f.close()
-
-	fname='WPx_dipolarX'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                WPx_dipolarX.append(float(columns[1]))
-
-	    WPx_dipolarX=np.array(WPx_dipolarX) # in V/pC
-	    data['WPx_dipolarX_cst']=WPx_dipolarX
-	    f.close()
-
-	fname='WPy_dipolarX'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                WPy_dipolarX.append(float(columns[1]))
-
-	    WPy_dipolarX=np.array(WPy_dipolarX) # in V/pC
-	    data['WPy_dipolarX_cst']=WPy_dipolarX
-	    f.close()
-
-	fname='WPx_dipolarY'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                WPx_dipolarY.append(float(columns[1]))
-
-	    WPx_dipolarY=np.array(WPx_dipolarY) # in V/pC
-	    data['WPx_dipolarY_cst']=WPx_dipolarY
-	    f.close()
-
-	fname='WPy_dipolarY'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                WPy_dipolarY.append(float(columns[1]))
-
-	    WPy_dipolarY=np.array(WPy_dipolarY) # in V/pC
-	    data['WPy_dipolarY_cst']=WPy_dipolarY
-	    f.close()
-
-
-	# Quadrupolar wake potential [xytest!=0]
-	WPx_quadrupolar=[]
-	WPy_quadrupolar=[]
-	WPx_quadrupolarX=[]
-	WPy_quadrupolarX=[]
-	WPx_quadrupolarY=[]
-	WPy_quadrupolarY=[]
-	s_cst_quadrupolar=[]
-
-	fname='WPx_quadrupolar'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                WPx_quadrupolar.append(float(columns[1]))
-	                s_cst_quadrupolar.append(float(columns[0]))
-
-	    WPx_quadrupolar=np.array(WPx_quadrupolar) # in V/pC
-	    s_cst_quadrupolar=np.array(s_cst_quadrupolar)*1.0e-3  # in [m]
-	    data['WPx_quadrupolar_cst']=WPx_quadrupolar
-	    data['s_cst_quadrupolar']=s_cst_quadrupolar
-	    f.close()
-
-	fname='WPy_quadrupolar'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                WPy_quadrupolar.append(float(columns[1]))
-
-	    WPy_quadrupolar=np.array(WPy_quadrupolar) # in V/pC
-	    data['WPy_quadrupolar_cst']=WPy_quadrupolar
-	    f.close()
-
-	fname='WPx_quadrupolarX'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                WPx_quadrupolarX.append(float(columns[1]))
-
-	    WPx_quadrupolarX=np.array(WPx_quadrupolarX) # in V/pC
-	    data['WPx_quadrupolarX_cst']=WPx_quadrupolarX
-	    f.close()
-
-	fname='WPy_quadrupolarX'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                WPy_quadrupolarX.append(float(columns[1]))
-
-	    WPy_quadrupolarX=np.array(WPy_quadrupolarX) # in V/pC
-	    data['WPy_quadrupolarX_cst']=WPy_quadrupolarX
-	    f.close()
-
-	fname='WPx_quadrupolarY'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                WPx_quadrupolarY.append(float(columns[1]))
-
-	    WPx_quadrupolarY=np.array(WPx_quadrupolarY) # in V/pC
-	    data['WPx_quadrupolarY_cst']=WPx_quadrupolarY
-	    f.close()
-
-	fname='WPy_quadrupolarY'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                WPy_quadrupolarY.append(float(columns[1]))
-
-	    WPy_quadrupolarY=np.array(WPy_quadrupolarY) # in V/pC
-	    data['WPy_quadrupolarY_cst']=WPy_quadrupolarY
-	    f.close()
-
-	#---------------------------#
-	#      Impedance files      #
-	#---------------------------#  
-
-	# Longitudinal Impedance [DIRECT method]
-	Z=[]
-	ReZ=[]
-	ImZ=[]
-	freq_cst=[]
-
-	fname='Z'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                Z.append(float(columns[1]))
-	                freq_cst.append(float(columns[0]))
-
-	    Z=np.array(Z) # in [Ohm]
-	    freq_cst=np.array(freq_cst)*1e9  # in [Hz]
-	    data['Z_cst']=Z
-	    data['freq_cst']=freq_cst
-	    f.close()
-
-	fname='ReZ'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                ReZ.append(float(columns[1]))
-
-	    data['ReZ']=np.array(ReZ) # in [Ohm]
-	    f.close()
-
-	fname='ImZ'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                ImZ.append(float(columns[1]))
-
-	    data['ImZ']=np.array(ImZ) # in [Ohm]
-	    f.close()
-
-	# Transverse Impedance [xytest=0]
-	Zx=[]
-	fname='Zx'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                Zx.append(float(columns[1]))
-
-	    Zx=np.array(Zx) # in V/pC
-	    data['Zx_cst']=Zx
-	    f.close()
-
-	Zy=[]
-	fname='Zy'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                Zy.append(float(columns[1]))
-
-	    Zy=np.array(Zy) # in V/pC
-	    data['Zy_cst']=Zy
-	    f.close()
-
-	# Transverse dipolar Impedance [xysource!=0]
-	Zx_dipolar=[]
-	Zy_dipolar=[]
-	Zx_dipolarX=[]
-	Zy_dipolarX=[]
-	Zx_dipolarY=[]
-	Zy_dipolarY=[]
-	freq_cst_dipolar=[]
-
-	fname='Zx_dipolar'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-
-	            if i>1 and len(columns)>1:
-
-	                Zx_dipolar.append(float(columns[1]))
-
-	    Zx_dipolar=np.array(Zx_dipolar) # in V/pC
-	    data['Zx_cst']=Zx
-	    f.close()
-
-	fname='Zy_dipolar'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-
-	            if i>1 and len(columns)>1:
-
-	                Zy_dipolar.append(float(columns[1]))
-	                freq_cst_dipolar.append(float(columns[0]))
-
-	    Zy_dipolar=np.array(Zy_dipolar) # in V/pC
-	    data['Zy_dipolar_cst']=Zy_dipolar
-	    f.close()
-
-	fname='Zx_dipolarX'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):    
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-
-	            if i>1 and len(columns)>1:
-
-	                Zx_dipolarX.append(float(columns[1]))
-
-	    Zx_dipolarX=np.array(Zx_dipolarX) # in V/pC
-	    data['Zx_dipolarX_cst']=Zx_dipolarX
-	    f.close()
-
-	fname='Zy_dipolarX'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-
-	            if i>1 and len(columns)>1:
-
-	                Zy_dipolarX.append(float(columns[1]))
-
-	    Zy_dipolarX=np.array(Zy_dipolarX) # in V/pC
-	    data['Zy_dipolarX_cst']=Zy_dipolarX
-	    f.close()
-
-	fname='Zx_dipolarY'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-
-	            if i>1 and len(columns)>1:
-
-	                Zx_dipolarY.append(float(columns[1]))
-
-	    Zx_dipolarY=np.array(Zx_dipolarY) # in V/pC
-	    data['Zx_dipolarY_cst']=Zx_dipolarY
-	    f.close()
-
-	fname='Zy_dipolarY'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-
-	            if i>1 and len(columns)>1:
-
-	                Zy_dipolarY.append(float(columns[1]))
-
-	    Zy_dipolarY=np.array(Zy_dipolarY) # in V/pC
-	    data['Zy_dipolarY_cst']=Zy_dipolarY
-	    f.close()
-
-
-	# Transverse quadrupolar Impedance [xytest!=0]
-	Zx_quadrupolar=[]
-	Zy_quadrupolar=[]
-	Zx_quadrupolarX=[]
-	Zy_quadrupolarX=[]
-	Zx_quadrupolarY=[]
-	Zy_quadrupolarY=[]
-
-	fname='Zx_quadrupolar'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                Zx_quadrupolar.append(float(columns[1]))
-
-	    Zx_quadrupolar=np.array(Zx_quadrupolar) # in V/pC
-	    data['Zx_quadrupolar_cst']=Zx_quadrupolar
-	    f.close()
-
-	fname='Zy_quadrupolar'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-
-	            if i>1 and len(columns)>1:
-
-	                Zy_quadrupolar.append(float(columns[1]))
-
-	    Zy_quadrupolar=np.array(Zy_quadrupolar) # in V/pC
-	    data['Zy_quadrupolar_cst']=Zy_quadrupolar
-	    f.close()
-
-	fname='Zx_quadrupolarX'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                Zx_quadrupolarX.append(float(columns[1]))
-
-	    Zx_quadrupolarX=np.array(Zx_quadrupolarX) # in V/pC
-	    data['Zx_quadrupolarX_cst']=Zx_quadrupolarX
-	    f.close()
-
-	fname='Zy_quadrupolarX'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                Zy_quadrupolarX.append(float(columns[1]))
-
-	    Zy_quadrupolarX=np.array(Zy_quadrupolarX) # in V/pC
-	    data['Zy_quadrupolarX_cst']=Zy_quadrupolarX
-	    f.close()
-
-	fname='Zx_quadrupolarY'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                Zx_quadrupolarY.append(float(columns[1]))
-
-	    Zx_quadrupolarY=np.array(Zx_quadrupolarY) # in V/pC
-	    data['Zx_quadrupolarY_cst']=Zx_quadrupolarY
-	    f.close()
-
-	fname='Zy_quadrupolarY'
-	i=0
-	if os.path.exists(cst_path+fname+'.txt'):
-	    with open(cst_path+fname +'.txt') as f:
-	        for line in f:
-	            i+=1
-	            columns = line.split()
-	            if i>1 and len(columns)>1:
-	                Zy_quadrupolarY.append(float(columns[1]))
-
-	    Zy_quadrupolarY=np.array(Zy_quadrupolarY) # in V/pC
-	    data['Zy_quadrupolarY_cst']=Zy_quadrupolarY
-	    f.close()
-
-	# write the dictionary to a txt using json
+    #[TODO]
+
+
+    #--------------------------------#
+    #   charge distribution files    #
+    #--------------------------------#   
+
+    charge_dist=[]
+    charge_dist_time=[]
+    charge_dist_spectrum=[]
+    current=[]
+    distance=[]
+    t_charge_dist=[]
+
+    # Charge distribution in distance (s)
+    fname = 'lambda'
+    i=0
+
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname+'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    charge_dist.append(float(columns[1]))
+                    distance.append(float(columns[0]))
+
+        charge_dist=np.array(charge_dist) # in C/m
+        distance=np.array(distance)*1.0e-3   # in m
+
+        #close file
+        f.close()
+
+        #save in dict
+        data['charge_dist_cst']=charge_dist
+        data['s_charge_dist']=distance
+
+    #---------------------------#
+    #   Wake Potential files    #
+    #---------------------------#   
+
+    # Longitudinal wake potential [DIRECT method]
+    WP=[]
+    s_cst=[]
+
+    fname='WP'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    WP.append(float(columns[1]))
+                    s_cst.append(float(columns[0]))
+
+        WP=np.array(WP) # in V/pC
+        s_cst=np.array(s_cst)*1.0e-3  # in [m]
+
+        #close file
+        f.close()
+
+        #save in dict
+        data['WP_cst']=WP
+        data['s_cst']=s_cst
+
+
+    # Longitudinal wake potential [INDIRECT method]  
+    Indirect_WP_interfaces=[]
+    Indirect_WP_testbeams=[]
+
+    fname='indirect_interf_WP'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    Indirect_WP_interfaces.append(float(columns[1]))
+
+        Indirect_WP_interfaces=np.array(Indirect_WP_interfaces) # in V/pC
+        f.close()
+        data['Indirect_WP_interfaces']=Indirect_WP_interfaces
+
+    fname='indirect_test_WP'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    Indirect_WP_testbeams.append(float(columns[1]))
+
+        Indirect_WP_testbeams=np.array(Indirect_WP_testbeams) # in V/pC
+        f.close()
+        data['Indirect_WP_testbeams']=Indirect_WP_testbeams
+
+    # Transverse wake potential [xytest==0] [xysource==0]
+    WPx=[]
+    WPy=[]
+
+    fname='WPx'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    WPx.append(float(columns[1]))
+
+        WPx=np.array(WPx) # in V/pC
+        data['WPx_cst']=WPx
+        f.close()
+
+    fname='WPy'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    WPy.append(float(columns[1]))
+
+        WPy=np.array(WPy) # in V/pC
+        data['WPy_cst']=WPy
+        f.close()
+
+    # Dipolar wake potential [xysource!=0]
+    WPx_dipolar=[]
+    WPy_dipolar=[]
+    WPx_dipolarX=[]
+    WPy_dipolarX=[]
+    WPx_dipolarY=[]
+    WPy_dipolarY=[]
+    s_cst_dipolar=[]
+
+    fname='WPx_dipolar'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    WPx_dipolar.append(float(columns[1]))
+                    s_cst_dipolar.append(float(columns[0]))
+
+        WPx_dipolar=np.array(WPx_dipolar) # in V/pC
+        s_cst_dipolar=np.array(s_cst_dipolar)*1.0e-3  # in [m]
+        data['WPx_dipolar_cst']=WPx_dipolar
+        data['s_cst_dipolar']=s_cst_dipolar
+        f.close()
+
+    fname='WPy_dipolar'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    WPy_dipolar.append(float(columns[1]))
+
+        WPy_dipolar=np.array(WPy_dipolar) # in V/pC
+        data['WPy_dipolar_cst']=WPy_dipolar
+        f.close()
+
+    fname='WPx_dipolarX'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    WPx_dipolarX.append(float(columns[1]))
+
+        WPx_dipolarX=np.array(WPx_dipolarX) # in V/pC
+        data['WPx_dipolarX_cst']=WPx_dipolarX
+        f.close()
+
+    fname='WPy_dipolarX'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    WPy_dipolarX.append(float(columns[1]))
+
+        WPy_dipolarX=np.array(WPy_dipolarX) # in V/pC
+        data['WPy_dipolarX_cst']=WPy_dipolarX
+        f.close()
+
+    fname='WPx_dipolarY'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    WPx_dipolarY.append(float(columns[1]))
+
+        WPx_dipolarY=np.array(WPx_dipolarY) # in V/pC
+        data['WPx_dipolarY_cst']=WPx_dipolarY
+        f.close()
+
+    fname='WPy_dipolarY'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    WPy_dipolarY.append(float(columns[1]))
+
+        WPy_dipolarY=np.array(WPy_dipolarY) # in V/pC
+        data['WPy_dipolarY_cst']=WPy_dipolarY
+        f.close()
+
+
+    # Quadrupolar wake potential [xytest!=0]
+    WPx_quadrupolar=[]
+    WPy_quadrupolar=[]
+    WPx_quadrupolarX=[]
+    WPy_quadrupolarX=[]
+    WPx_quadrupolarY=[]
+    WPy_quadrupolarY=[]
+    s_cst_quadrupolar=[]
+
+    fname='WPx_quadrupolar'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    WPx_quadrupolar.append(float(columns[1]))
+                    s_cst_quadrupolar.append(float(columns[0]))
+
+        WPx_quadrupolar=np.array(WPx_quadrupolar) # in V/pC
+        s_cst_quadrupolar=np.array(s_cst_quadrupolar)*1.0e-3  # in [m]
+        data['WPx_quadrupolar_cst']=WPx_quadrupolar
+        data['s_cst_quadrupolar']=s_cst_quadrupolar
+        f.close()
+
+    fname='WPy_quadrupolar'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    WPy_quadrupolar.append(float(columns[1]))
+
+        WPy_quadrupolar=np.array(WPy_quadrupolar) # in V/pC
+        data['WPy_quadrupolar_cst']=WPy_quadrupolar
+        f.close()
+
+    fname='WPx_quadrupolarX'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    WPx_quadrupolarX.append(float(columns[1]))
+
+        WPx_quadrupolarX=np.array(WPx_quadrupolarX) # in V/pC
+        data['WPx_quadrupolarX_cst']=WPx_quadrupolarX
+        f.close()
+
+    fname='WPy_quadrupolarX'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    WPy_quadrupolarX.append(float(columns[1]))
+
+        WPy_quadrupolarX=np.array(WPy_quadrupolarX) # in V/pC
+        data['WPy_quadrupolarX_cst']=WPy_quadrupolarX
+        f.close()
+
+    fname='WPx_quadrupolarY'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    WPx_quadrupolarY.append(float(columns[1]))
+
+        WPx_quadrupolarY=np.array(WPx_quadrupolarY) # in V/pC
+        data['WPx_quadrupolarY_cst']=WPx_quadrupolarY
+        f.close()
+
+    fname='WPy_quadrupolarY'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    WPy_quadrupolarY.append(float(columns[1]))
+
+        WPy_quadrupolarY=np.array(WPy_quadrupolarY) # in V/pC
+        data['WPy_quadrupolarY_cst']=WPy_quadrupolarY
+        f.close()
+
+    #---------------------------#
+    #      Impedance files      #
+    #---------------------------#  
+
+    # Longitudinal Impedance [DIRECT method]
+    Z=[]
+    ReZ=[]
+    ImZ=[]
+    freq_cst=[]
+
+    fname='Z'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    Z.append(float(columns[1]))
+                    freq_cst.append(float(columns[0]))
+
+        Z=np.array(Z) # in [Ohm]
+        freq_cst=np.array(freq_cst)*1e9  # in [Hz]
+        data['Z_cst']=Z
+        data['freq_cst']=freq_cst
+        f.close()
+
+    fname='ReZ'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    ReZ.append(float(columns[1]))
+
+        data['ReZ']=np.array(ReZ) # in [Ohm]
+        f.close()
+
+    fname='ImZ'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    ImZ.append(float(columns[1]))
+
+        data['ImZ']=np.array(ImZ) # in [Ohm]
+        f.close()
+
+    # Transverse Impedance [xytest=0]
+    Zx=[]
+    fname='Zx'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    Zx.append(float(columns[1]))
+
+        Zx=np.array(Zx) # in V/pC
+        data['Zx_cst']=Zx
+        f.close()
+
+    Zy=[]
+    fname='Zy'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    Zy.append(float(columns[1]))
+
+        Zy=np.array(Zy) # in V/pC
+        data['Zy_cst']=Zy
+        f.close()
+
+    # Transverse dipolar Impedance [xysource!=0]
+    Zx_dipolar=[]
+    Zy_dipolar=[]
+    Zx_dipolarX=[]
+    Zy_dipolarX=[]
+    Zx_dipolarY=[]
+    Zy_dipolarY=[]
+    freq_cst_dipolar=[]
+
+    fname='Zx_dipolar'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+
+                if i>1 and len(columns)>1:
+
+                    Zx_dipolar.append(float(columns[1]))
+
+        Zx_dipolar=np.array(Zx_dipolar) # in V/pC
+        data['Zx_cst']=Zx
+        f.close()
+
+    fname='Zy_dipolar'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+
+                if i>1 and len(columns)>1:
+
+                    Zy_dipolar.append(float(columns[1]))
+                    freq_cst_dipolar.append(float(columns[0]))
+
+        Zy_dipolar=np.array(Zy_dipolar) # in V/pC
+        data['Zy_dipolar_cst']=Zy_dipolar
+        f.close()
+
+    fname='Zx_dipolarX'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):    
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+
+                if i>1 and len(columns)>1:
+
+                    Zx_dipolarX.append(float(columns[1]))
+
+        Zx_dipolarX=np.array(Zx_dipolarX) # in V/pC
+        data['Zx_dipolarX_cst']=Zx_dipolarX
+        f.close()
+
+    fname='Zy_dipolarX'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+
+                if i>1 and len(columns)>1:
+
+                    Zy_dipolarX.append(float(columns[1]))
+
+        Zy_dipolarX=np.array(Zy_dipolarX) # in V/pC
+        data['Zy_dipolarX_cst']=Zy_dipolarX
+        f.close()
+
+    fname='Zx_dipolarY'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+
+                if i>1 and len(columns)>1:
+
+                    Zx_dipolarY.append(float(columns[1]))
+
+        Zx_dipolarY=np.array(Zx_dipolarY) # in V/pC
+        data['Zx_dipolarY_cst']=Zx_dipolarY
+        f.close()
+
+    fname='Zy_dipolarY'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+
+                if i>1 and len(columns)>1:
+
+                    Zy_dipolarY.append(float(columns[1]))
+
+        Zy_dipolarY=np.array(Zy_dipolarY) # in V/pC
+        data['Zy_dipolarY_cst']=Zy_dipolarY
+        f.close()
+
+
+    # Transverse quadrupolar Impedance [xytest!=0]
+    Zx_quadrupolar=[]
+    Zy_quadrupolar=[]
+    Zx_quadrupolarX=[]
+    Zy_quadrupolarX=[]
+    Zx_quadrupolarY=[]
+    Zy_quadrupolarY=[]
+
+    fname='Zx_quadrupolar'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    Zx_quadrupolar.append(float(columns[1]))
+
+        Zx_quadrupolar=np.array(Zx_quadrupolar) # in V/pC
+        data['Zx_quadrupolar_cst']=Zx_quadrupolar
+        f.close()
+
+    fname='Zy_quadrupolar'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+
+                if i>1 and len(columns)>1:
+
+                    Zy_quadrupolar.append(float(columns[1]))
+
+        Zy_quadrupolar=np.array(Zy_quadrupolar) # in V/pC
+        data['Zy_quadrupolar_cst']=Zy_quadrupolar
+        f.close()
+
+    fname='Zx_quadrupolarX'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    Zx_quadrupolarX.append(float(columns[1]))
+
+        Zx_quadrupolarX=np.array(Zx_quadrupolarX) # in V/pC
+        data['Zx_quadrupolarX_cst']=Zx_quadrupolarX
+        f.close()
+
+    fname='Zy_quadrupolarX'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    Zy_quadrupolarX.append(float(columns[1]))
+
+        Zy_quadrupolarX=np.array(Zy_quadrupolarX) # in V/pC
+        data['Zy_quadrupolarX_cst']=Zy_quadrupolarX
+        f.close()
+
+    fname='Zx_quadrupolarY'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    Zx_quadrupolarY.append(float(columns[1]))
+
+        Zx_quadrupolarY=np.array(Zx_quadrupolarY) # in V/pC
+        data['Zx_quadrupolarY_cst']=Zx_quadrupolarY
+        f.close()
+
+    fname='Zy_quadrupolarY'
+    i=0
+    if os.path.exists(cst_path+fname+'.txt'):
+        with open(cst_path+fname +'.txt') as f:
+            for line in f:
+                i+=1
+                columns = line.split()
+                if i>1 and len(columns)>1:
+                    Zy_quadrupolarY.append(float(columns[1]))
+
+        Zy_quadrupolarY=np.array(Zy_quadrupolarY) # in V/pC
+        data['Zy_quadrupolarY_cst']=Zy_quadrupolarY
+        f.close()
+
+    # write the dictionary to a txt using json
     with open(cst_path+'cst.bmk', 'w') as fp:
         js.dump(data, fp,  indent=4)
 
     print('[! OUT] "cst.bmk" file succesfully created')
-
-def run_benchmark(cst_path, out_path):
-
-    if not os.exists(cst_path+'cst.bmk'):
-        generate_bmk(cst_path)
-
-    # Plot in individual figures
-    figs = bmk_WAKIS(data=read_WAKIS_in(out_path), 
-                bmk=read_bmk(cst_path), 
-                flag_compare_cst=True, 
-                flag_charge_dist=True,
-                flag_plot_Real=True, 
-                flag_plot_Imag=True,
-                flag_plot_Abs=False
-                )
-
-    figs[0].savefig(out_path+'longWP_bmk.png', bbox_inches='tight')
-    figs[1].savefig(out_path+'longZ_bmk.png',  bbox_inches='tight')
-    figs[2].savefig(out_path+'transWP_bmk.png',  bbox_inches='tight')
-    figs[3].savefig(out_path+'transZ_bmk.png',  bbox_inches='tight')
-
-    if len(figs) > 4:
-        figs[4].savefig(out_path+'charge_dist_bmk.png', bbox_inches='tight')
 
 
 if __name__ == "__main__":

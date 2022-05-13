@@ -4,76 +4,120 @@
 -----------------------
 Functions for WAKIS solver
 
-Functions: [TODO]
+Functions: 
 ---------
-- a
-- b
-- c
+- run_WAKIS(): main routine
+- calc_long_WP(): obtains Wake potential WP(x,y,s) form Ez(x,y,z,t) field
+- calc_trans_WP(): obtains transverse Wake potential WPx(s), WPy(s) from WP(x,y,s)
+- calc_long_Z(): obtains Impedance Z(w) from WP(s) and charge distribution λ(s)
+- calc_trans_Z(): obtains transverse Impedance Zx(w), Zy(w) from WPx(s), WPy(s) and charge distribution λ(s)
 
 Requirements:
 ------------- 
-pip install matplotlib, numpy, h5py, scipy
+pip install matplotlib, numpy, scipy
 
 '''
 import os 
-import pickle as pk
+import json as js
+import time 
 
 import numpy as np
-import h5py 
 from scipy.constants import c, pi
 
-from proc import read_WAKIS_in, read_WAKIS_out, read_Ez
+from proc import read_WAKIS_in, read_Ez, subplot_WAKIS, preproc_CST, preproc_WarpX
 
-UNIT = 1e-3 #conversion to m
 cwd = os.getcwd() + '/'
 
-def check_input(data):
+def run_WAKIS(path, hf_name='Ez.h5', warpx_path=cwd, cst_path=cwd, flag_plot=True, flag_preproc=False, flag_warpx=True, flag_cst=False):
     '''
-    Check if all the needed variables for the wake solver are defined.
-    - Charge distribution (z.t) extraction from rho.h5 file [C/m]
-    - Beam charge 'q': default 1e-9 [C]
-    - Beam longitudinal sigma 'sigmaz': default 0.02 [m]
-    - Unit conversion 'unit': default 1e-3 [m]
+    Main routine of WAKIS. Obtains the Wake Potential and Impedance from 
+    pre-computed electromagnetic fields of structures with a passing beam
+
+    -pre-process data from EM solver and stored it in 'wakis.in', 'Ez.h5'
+    -Reads the input data dictionary from 'wakis.in' file
+    -Reads the 3d data of the Ez field from 'Ez.h5' file
+    -Performs the direct integration of the longitudinal Wake Potential
+    -Obtains the transverse Wake Potential through Panofsky Wenzel theorem
+    -Obtains the longitudinal and transverse Impedance
+    -Saves the data in a json dictionary in 'wakis.out' file
+    -Plots the results 
+
+    Parameters:
+    -----------
+    -path=cwd [default] Define the path to the 'wakis.in' and 'Ez.h5' file
+    -hf_name='Ez.h5' [default]. Name of the h5 file with the Ez field
+    -flag_plot=True [default]. Activate plot generation
+    -flag_preproc=False [default] preprocesses warpx/CST if wakis.in is not found
+    -flag_warpx=chooses warpx preproccessing if flag_preproc=True
+    -flag_cst=chooses cst preprocessing if flag_preproc=True
+
+    Inputs:
+    -------
+    - 'wakis.in' file, from preproc_CST() or preproc_WarpX()
+    - 'Ez.h5' file, from preproc_Ez()
+    if pre processing:
+    - 'warpx.out' or 'cst.out'
+
+    Outputs:
+    --------
+    -'wakis.out' file with the wake solver output
+    -'wakis.png' image with the wake potential and impedance plots
+
     '''
-    if data.get('charge_dist') is None:
-        hf_rho = h5py.File(out_path +'rho.h5', 'r')
+    t0 = time.time()
 
-        #get number of datasets
-        dataset_rho=[]
-        for key in hf_rho.keys():
-            dataset_rho.append(key)
+    print('---------------------')
+    print('|   Running WAKIS   |')
+    print('---------------------')
 
-        # Extract charge distribution [C/m] lambda(z,t)
-        charge_dist=[]
-        x=data.get('x')
-        y=data.get('y')
-        nt=data.get('nt')
+    if flag_preproc:
+        if not os.path.exists(path+'wakis.in'):
+            if flag_warpx:
+                preproc_WarpX(warpx_path)
+            elif flag_cst:
+                preproc_CST(cst_path)
+            else: print('[! WARNING] No EM solver was specified for preprocessing')
 
-        dx=x[2]-x[1]
-        dy=y[2]-y[1]
-        for n in range(nt):
-            rho=hf_rho.get(dataset_rho[n]) # [C/m3]
-            charge_dist.append(np.array(rho)*dx*dy) # [C/m]
+    # Read data from 'wakis.in'
+    data = read_WAKIS_in(path)
 
-        charge_dist=np.transpose(np.array(charge_dist)) # [C/m]
+    # Obtain longitudinal Wake potential
+    WP_3d, s = calc_long_WP(data, path, hf_name)
+    WP=WP_3d[1,1,:]
+    data['WP']=WP
+    data['s']=s
 
-        # Correct the maximum value so the integral along z = q
-        timestep=np.argmax(charge_dist[nz//2, :])   #max at cavity center
-        qz=np.sum(charge_dist[:,timestep])*dz       #charge along the z axis
-        charge_dist = charge_dist[int(nz/2-L_pipe/dz):int(nz/2+L_pipe/dz+1), :]*bunch_charge/qz    #total charge in the z axis
+    #Obtain transverse Wake potential
+    WPx, WPy = calc_trans_WP(WP_3d, s, data)
+    data['WPx']=WPx
+    data['WPy']=WPy
 
-        data['charge_dist']=charge_dist
-        print('charge_dist checked')
+    #Obtain the longitudinal impedance
+    Z, f = calc_long_Z(WP,s, data)
+    data['Z']=Z
+    data['f']=f
 
-    if data.get('q') is None:
-        data['q']=1e-9
-        print('q checked')
+    #Obtain transverse impedance
+    Zx, Zy = calc_trans_Z(WPx, WPy, s, data)
+    data['Zx']=Zx
+    data['Zy']=Zy
 
-    if data.get('unit') is None:
-        data['unit']=1e-3
-        print('unit checked')
+    #Elapsed time
+    t1 = time.time()
+    totalt = t1-t0
+    print('[PROGRESS] Calculation terminated in %ds' %totalt)
 
-    return data
+    #Save results in wakis.out
+    with open('wakis.out', 'w') as fp:
+        js.dump(data, fp,  indent=4)
+
+    print('[! OUT] wakis.out file succesfully generated') 
+
+    #Plot WAKIS
+    if flag_plot:
+        fig = subplot_WAKIS(data)
+        fig.savefig(path+'wakis.png',  bbox_inches='tight')
+        print('[! OUT] wakis.png file succesfully generated') 
 
 
 def calc_long_WP(data, path=cwd, hf_name='Ez.h5'):

@@ -28,9 +28,7 @@ cwd = os.getcwd() + '/'
 
 # Global parameters for plotting
 plt.rcParams.update({'font.size': 12})
-
-#[TODO] read units from wakis.in
-UNIT = 1e-3 #unit conversion for x-axis [m]->[mm]
+UNIT = 1e-3 #x-axis expressed in [mm]
 
 #-----------------------------#
 #   Pre-processing functions  #
@@ -87,7 +85,7 @@ def read_Ez(out_path=cwd, filename='Ez.h5'):
 
     return hf, dataset
 
-def preproc_WarpX(warpx_path):
+def preproc_WarpX(warpx_path, path=cwd):
     '''
     Pre-process WaprX simulation output warpx.out
 
@@ -98,10 +96,6 @@ def preproc_WarpX(warpx_path):
     Outputs:
     --------
     - wakis.in file ready to use by the solver module
-
-    Returns:
-    --------
-    - data: dicionary stored in wakis.in file
 
     '''
 
@@ -117,17 +111,16 @@ def preproc_WarpX(warpx_path):
 
     # Check charge distribution
     if data.get('charge_dist') is None:
-        data['charge_dist'] = preproc_rho(path)
+        data['charge_dist'] = preproc_rho(warpx_path)
 
     # Save dictionary with json
-    with open('wakis.in', 'w') as fp:
+    with open(path+'wakis.in', 'w') as fp:
         js.dump(data, fp,  indent=4)
 
     print('[! OUT] wakis.in file succesfully generated') 
 
-    return data
 
-def preproc_CST(cst_path, hf_name='Ez.h5', out_path=cwd, **kwargs):
+def preproc_CST(cst_path, hf_name='Ez.h5', path=cwd, **kwargs):
     '''
     Pre-process the CST 3D field monitor output 
 
@@ -152,15 +145,11 @@ def preproc_CST(cst_path, hf_name='Ez.h5', out_path=cwd, **kwargs):
     --------
     - wakis.in file ready to use by the solver module
 
-    Returns:
-    --------
-    - data: dicionary stored in wakis.in file
-
     '''
 
     # Save kwargs in cst.out
     if bool(kwargs):
-        with open('cst.out', 'w') as fp:
+        with open(cst_path+'cst.out', 'w') as fp:
             js.dump(kwargs, fp,  indent=4)
 
     # Pre-process 3d Ez field data
@@ -168,7 +157,7 @@ def preproc_CST(cst_path, hf_name='Ez.h5', out_path=cwd, **kwargs):
                       n_transverse_cells=n_transverse_cells, 
                       n_longitudinal_cells=n_longitudinal_cells, 
                       hf_name=hf_name, 
-                      out_path=cwd
+                      out_path=path
                       )
 
     # Charge distribution vs distance (s)
@@ -182,12 +171,11 @@ def preproc_CST(cst_path, hf_name='Ez.h5', out_path=cwd, **kwargs):
     data=check_input(data)
 
     # Generate wakis.in file
-    with open('wakis.in', 'w') as fp:
+    with open(path+'wakis.in', 'w') as fp:
         js.dump(data, fp,  indent=4)
 
     print('[! OUT] wakis.in file succesfully generated')
     
-    return data
 
 def preproc_Ez(cst_path, hf_name='Ez.h5', out_path=cwd):
     '''
@@ -529,19 +517,19 @@ def animate_Ez(path, filename='Ez.h5', flag_charge_dist=True, flag_compare_cst=F
             #--- Plot Ez along z axis 
             fig = plt.figure(1, figsize=(6,4), dpi=200, tight_layout=True)
             ax=fig.gca()
-            ax.plot(np.array(z0)*1.0e3, charge_dist[:,n]/np.max(charge_dist)*np.max(Ez0)*0.4, lw=1.3, color='r', label='$\lambda $') 
-            ax.plot(z*1e3, Ez0[:, n], color='g', label='Ez(0,0,z) WarpX')
+            ax.plot(np.array(z0)/UNIT, charge_dist[:,n]/np.max(charge_dist)*np.max(Ez0)*0.4, lw=1.3, color='r', label='$\lambda $') 
+            ax.plot(z/UNIT, Ez0[:, n], color='g', label='Ez(0,0,z) WarpX')
 
             if flag_transverse_field:
-                ax.plot(z*1e3, Ez1[:, n], color='seagreen', label='Ez(0+dx, 0+dy, z) WarpX')
-                ax.plot(z*1e3, Ez2[:, n], color='limegreen', label='Ez(0+2dx, 0+2dy, z) WarpX')
+                ax.plot(z/UNIT, Ez1[:, n], color='seagreen', label='Ez(0+dx, 0+dy, z) WarpX')
+                ax.plot(z/UNIT, Ez2[:, n], color='limegreen', label='Ez(0+2dx, 0+2dy, z) WarpX')
 
             if flag_compare_cst:
                 try:
                     cst_data=read_CST(CST_PATH)
                     z_cst=cst_data.get('z_cst')
                     Ez_cst=cst_data.get('Ez_cst')
-                    ax.plot(z_cst*1e3, Ez_cst[:, n], lw=1.0, color='black', ls='--',label='Ez(0,0,z) CST')
+                    ax.plot(z_cst/UNIT, Ez_cst[:, n], lw=1.0, color='black', ls='--',label='Ez(0,0,z) CST')
                 except: 
                     print('Warning: macro CST_PATH is not well defined')
 
@@ -549,7 +537,7 @@ def animate_Ez(path, filename='Ez.h5', flag_charge_dist=True, flag_compare_cst=F
                     xlabel='z [mm]',
                     ylabel='E [V/m]',         
                     ylim=(-np.max(Ez0)*1.1,np.max(Ez0)*1.1),
-                    xlim=(min(z)*1e3,max(z)*1e3),
+                    xlim=(min(z)/UNIT,max(z)/UNIT),
                             )
             ax.legend(loc='best')
             ax.grid(True, color='gray', linewidth=0.2)
@@ -587,7 +575,7 @@ def contour_Ez(out_path, filename='Ez.h5', vmin=-1.0e5, vmax=1.0e5):
             Ez=hf.get(dataset[n])
             fig = plt.figure(1, figsize=(6,4), dpi=200, tight_layout=True)
             ax=fig.gca()
-            im=ax.imshow(Ez[int(Ez.shape[0]/2),:,:], vmin=vmin, vmax=vmax, extent=[min(z)*1e3, max(z)*1e3, min(y)*1e3, max(y)*1e3], cmap='jet')
+            im=ax.imshow(Ez[int(Ez.shape[0]/2),:,:], vmin=vmin, vmax=vmax, extent=[min(z)/UNIT, max(z)/UNIT, min(y)/UNIT, max(y)/UNIT], cmap='jet')
             ax.set(title='WarpX Ez field, t = ' + str(round(t[n]*1e9,3)) + ' ns',
                    xlabel='z [mm]',
                    ylabel='y [mm]'
@@ -617,11 +605,11 @@ def plot_charge_dist(data):
     # Plot charge distribution λ(s) & comparison with CST 
     fig = plt.figure(1, figsize=(8,5), dpi=150, tight_layout=True)
     ax=fig.gca()
-    ax.plot(s*1.0e3, lambdas, lw=1.2, color='red', label='$\lambda$(s)')
+    ax.plot(s/UNIT, lambdas, lw=1.2, color='red', label='$\lambda$(s)')
     ax.set(title='Charge distribution $\lambda$(s)',
             xlabel='s [mm]',
             ylabel='$\lambda$(s) [C/m]',
-            xlim=(min(s*1.0e3), np.max(s*1.0e3))
+            xlim=(min(s/UNIT), np.max(s/UNIT))
             )
     ax.legend(loc='best')
     ax.grid(True, color='gray', linewidth=0.2)
@@ -635,7 +623,7 @@ def plot_long_WP(data):
 
     Parameters:
     -----------
-    - data = read_WAKIS_out(out_path)
+    - data = read_WAKIS_out(path)
     '''
 
     # Obtain WAKIS variables
@@ -645,11 +633,11 @@ def plot_long_WP(data):
     # Plot longitudinal wake potential W||(s) & comparison with CST 
     fig = plt.figure(1, figsize=(8,5), dpi=150, tight_layout=True)
     ax=fig.gca()
-    ax.plot(s*1.0e3, WP, lw=1.2, color='orange', label='$W_{||}$(s)')
+    ax.plot(s/UNIT, WP, lw=1.2, color='orange', label='$W_{||}$(s)')
     ax.set(title='Longitudinal Wake potential $W_{||}$(s)',
             xlabel='s [mm]',
             ylabel='$W_{||}$(s) [V/pC]',
-            xlim=(min(s*1.0e3),np.max(s*1.0e3)),
+            xlim=(min(s/UNIT),np.max(s/UNIT)),
             ylim=(min(WP)*1.2, max(WP)*1.2)
             )
     ax.legend(loc='lower right')
@@ -665,7 +653,7 @@ def plot_long_Z(data,
 
     Parameters:
     -----------
-    - data = read_WAKIS_out(out_path)
+    - data = read_WAKIS_out(path)
     - flag_plot_Real = False [default]
     - flag_plot_Imag = False [default]
     - flag_plot_Abs = True [default]
@@ -715,7 +703,7 @@ def plot_trans_WP(data):
 
     Parameters:
     -----------
-    - data = read_WAKIS_out(out_path)
+    - data = read_WAKIS_out(path)
     '''
     # Obtain wakis variables
     WPx=data.get('WPx')
@@ -730,12 +718,12 @@ def plot_trans_WP(data):
     # Plot transverse wake potential Wx⊥(s), Wy⊥(s) & comparison with CST
     fig = plt.figure(3, figsize=(8,5), dpi=150, tight_layout=True)
     ax=fig.gca()
-    ax.plot(s*1.0e3, WPx, lw=1.2, color='g', label='Wx⊥(s)')
-    ax.plot(s*1.0e3, WPy, lw=1.2, color='magenta', label='Wy⊥(s)')
-    ax.set(title='Transverse Wake potential W⊥(s) \n (x,y) source = ('+str(round(xsource*1e3,1))+','+str(round(ysource*1e3,1))+') mm | test = ('+str(round(xtest*1e3,1))+','+str(round(ytest*1e3,1))+') mm',
+    ax.plot(s/UNIT, WPx, lw=1.2, color='g', label='Wx⊥(s)')
+    ax.plot(s/UNIT, WPy, lw=1.2, color='magenta', label='Wy⊥(s)')
+    ax.set(title='Transverse Wake potential W⊥(s) \n (x,y) source = ('+str(round(xsource/UNIT,1))+','+str(round(ysource/UNIT,1))+') mm | test = ('+str(round(xtest/UNIT,1))+','+str(round(ytest/UNIT,1))+') mm',
             xlabel='s [mm]',
             ylabel='$W_{⊥}$ [V/pC]',
-            xlim=(np.min(s*1.0e3), np.max(s*1.0e3)),
+            xlim=(np.min(s/UNIT), np.max(s/UNIT)),
             )
     ax.legend(loc='best')
     ax.grid(True, color='gray', linewidth=0.2)
@@ -750,7 +738,7 @@ def plot_trans_Z(data,
 
     Parameters:
     -----------
-    - data = read_WAKIS_out(out_path)
+    - data = read_WAKIS_out(path)
     - flag_plot_Real = False [default]
     - flag_plot_Imag = False [default]
     - flag_plot_Abs = True [default]
@@ -809,7 +797,7 @@ def plot_trans_Z(data,
         ax.annotate(str(round(f[ifymax]*1e-9,2))+ ' GHz', xy=(f[ifymax]*1e-9, Zy[ifymax]), xytext=(-50,-5), textcoords='offset points', color='magenta') 
         ax.plot(f*1e-9, Zy, lw=1, color='magenta', marker='s', markersize=2., label='Zy⊥(w)')
 
-    ax.set(title='Transverse impedance Z⊥(w) \n (x,y) source = ('+str(round(xsource*1e3,1))+','+str(round(ysource*1e3,1))+') mm | test = ('+str(round(xtest*1e3,1))+','+str(round(ytest*1e3,1))+') mm',
+    ax.set(title='Transverse impedance Z⊥(w) \n (x,y) source = ('+str(round(xsource/UNIT,1))+','+str(round(ysource/UNIT,1))+') mm | test = ('+str(round(xtest/UNIT,1))+','+str(round(ytest/UNIT,1))+') mm',
             xlabel='f [GHz]',
             ylabel='Z⊥(w) [$\Omega$]',   
             xlim=(0.,np.max(f)*1e-9)      
@@ -828,7 +816,7 @@ def plot_WAKIS(data, flag_charge_dist=False,
 
     Parameters
     ---------- 
-    - data: [default] data=read_WAKIS_out(OUT_PATH). Dictionary containing the wake solver output
+    - data: [default] data=read_WAKIS_out(path). Dictionary containing the wake solver output
     - flag_charge_dist: [default] False. Plots the charge distribution as a function of s 
     - flag_plot_Real = False [default]
     - flag_plot_Imag = False [default]
@@ -858,14 +846,14 @@ def plot_WAKIS(data, flag_charge_dist=False,
     else: 
         return fig1, fig2, fig3, fig4 
 
-def subplot_WAKIS(data, flag_charge_dist=False, flag_plot_Real=False, flag_plot_Imag=False, flag_plot_Abs=True):
+def subplot_WAKIS(data, flag_charge_dist=True, flag_plot_Real=False, flag_plot_Imag=False, flag_plot_Abs=True):
     '''
     Plot results of WAKIS wake solver in the same figure
 
     Parameters
     ---------- 
-    - data = [default] read_WAKIS_out(OUT_PATH). Dictionary containing the wake solver output
-    - flag_charge_dist = [default] False : Plots (normalized) charge distribution on top of the wake potential
+    - data = [default] read_WAKIS_out(path). Dictionary containing the wake solver output
+    - flag_charge_dist = [default] True : Plots (normalized) charge distribution on top of the wake potential
     - flag_plot_Real = [default] False : Adds the real part of the impedance Z to the plot
     - flag_plot_Imag = [default] False : Adds the imaginary part of the impedance Z to the plot
     - flag_plot_Abs  = [default] True : Adds the magnitude of the impedance Z to the plot
@@ -885,17 +873,17 @@ def subplot_WAKIS(data, flag_charge_dist=False, flag_plot_Real=False, flag_plot_
     ytest=data.get('ytest') 
 
     plt.text(x=0.5, y=0.96, s="WAKIS wake solver result", fontsize='x-large', fontweight='bold', ha="center", transform=fig.transFigure)
-    plt.text(x=0.5, y=0.93, s= '(x,y) source = ('+str(round(xsource*1e3,1))+','+str(round(ysource*1e3,1))+') mm | test = ('+str(round(xtest*1e3,1))+','+str(round(ytest*1e3,1))+') mm', fontsize='large', ha="center", transform=fig.transFigure)
+    plt.text(x=0.5, y=0.93, s= '(x,y) source = ('+str(round(xsource/UNIT,1))+','+str(round(ysource/UNIT,1))+') mm | test = ('+str(round(xtest/UNIT,1))+','+str(round(ytest/UNIT,1))+') mm', fontsize='large', ha="center", transform=fig.transFigure)
 
     # Longitudinal WP
     WP=data.get('WP')
     s=data.get('s')
 
-    ax1.plot(s*1.0e3, WP, lw=1.2, color='orange', label='$W_{||}$(s)')
+    ax1.plot(s/UNIT, WP, lw=1.2, color='orange', label='$W_{||}$(s)')
 
     if flag_charge_dist:
         lambdas = data.get('lambda')
-        ax1.plot(s*1.0e3, lambdas*max(WP)/max(lambdas), lw=1, color='red', label='$\lambda$(s) [norm]')
+        ax1.plot(s/UNIT, lambdas*max(WP)/max(lambdas), lw=1, color='red', label='$\lambda$(s) [norm]')
 
     ax1.set(title='Longitudinal Wake potential $W_{||}$(s)',
             xlabel='s [mm]',
@@ -938,8 +926,8 @@ def subplot_WAKIS(data, flag_charge_dist=False, flag_plot_Real=False, flag_plot_
     WPx=data.get('WPx')
     WPy=data.get('WPy')
 
-    ax3.plot(s*1.0e3, WPx, lw=1.2, color='g', label='Wx⊥(s)')
-    ax3.plot(s*1.0e3, WPy, lw=1.2, color='magenta', label='Wy⊥(s)')
+    ax3.plot(s/UNIT, WPx, lw=1.2, color='g', label='Wx⊥(s)')
+    ax3.plot(s/UNIT, WPy, lw=1.2, color='magenta', label='Wy⊥(s)')
     ax3.set(title='Transverse Wake potential W⊥(s)',
             xlabel='s [mm]',
             ylabel='$W_{⊥}$ [V/pC]',
