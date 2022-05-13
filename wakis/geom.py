@@ -125,10 +125,4 @@ def next2power(n):
         i *=2
 
     return i
-
-
-if __name__ == "__main__":
-
-    test_new_geometry()
-    
- 
+   

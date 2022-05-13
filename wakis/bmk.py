@@ -20,8 +20,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import h5py as h5py
 
-from proc import read_WAKIS_out, read_Ez
-from solver import run_WAKIS
+from .proc import read_WAKIS_out, read_Ez
+from .solver import run_WAKIS
 
 # Global parameters for plotting
 cwd = os.getcwd() + '/'
@@ -1219,4 +1219,5 @@ def generate_bmk(cst_path):
 
 if __name__ == "__main__":
 
-    print([TODO])
+    cst_path=cwd
+    run_benchmark(cst_path, wakis_path=cwd)

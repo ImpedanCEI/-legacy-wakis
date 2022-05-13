@@ -14,7 +14,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="wakis",
-    version="0.0.2",
+    version="0.0.5",
     description="Wake potential and Impedance from pre-computed fields",
     author="Elena de la Fuente Garcia",
     author_email="elena.de.la.fuente.garcia@cern.ch",

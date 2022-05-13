@@ -24,7 +24,7 @@ import time
 import numpy as np
 from scipy.constants import c, pi
 
-from proc import read_WAKIS_in, read_Ez, subplot_WAKIS, preproc_CST, preproc_WarpX
+from .proc import read_WAKIS_in, read_Ez, subplot_WAKIS, preproc_CST, preproc_WarpX
 
 cwd = os.getcwd() + '/'
 
