@@ -10,12 +10,15 @@ Functions:
 - eval_implicit: evaluates the expression parsed to the WarpX picmi.EmbeddedBoundary class
                  and transforms it to a f(x,y,z) function readable by triang_implicit
 - next2power: return the closest 2**n power for a given number N
+- execfile: executes a python script keeping the current local and global variables
 
 Requirements:
 ------------- 
 pip install scikit-image, matplotlib, numpy
 
 '''
+import sys
+
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import axes3d
@@ -125,5 +128,11 @@ def next2power(n):
 
     return i
 
-
+def execfile(filename, globals=None, locals=None):
+    if globals is None:
+        globals = sys._getframe(1).f_globals
+    if locals is None:
+        locals = sys._getframe(1).f_locals
+    with open(filename, "r") as fh:
+        exec(fh.read()+"\n", globals, locals)
    
