@@ -4,74 +4,361 @@
 -----------------------
 Functions for WAKIS solver
 
-Functions: [TODO]
+Functions: 
 ---------
-- a
-- b
-- c
+- run_WAKIS(): main routine
+- calc_long_WP(): obtains Wake potential WP(x,y,s) form Ez(x,y,z,t) field
+- calc_trans_WP(): obtains transverse Wake potential WPx(s), WPy(s) from WP(x,y,s)
+- calc_long_Z(): obtains Impedance Z(w) from WP(s) and charge distribution λ(s)
+- calc_trans_Z(): obtains transverse Impedance Zx(w), Zy(w) from WPx(s), WPy(s) and charge distribution λ(s)
 
 Requirements:
 ------------- 
-pip install matplotlib, numpy, h5py, scipy
+pip install matplotlib, numpy, scipy
 
 '''
 import os 
-import pickle as pk
+import json as js
+import time 
 
 import numpy as np
-import scipy.fftpack as fftpack  
-import h5py 
 from scipy.constants import c, pi
 
-UNIT = 1e-3 #conversion to m
-OUT_PATH = os.getcwd() + '/'
+from .proc import read_WAKIS_in, read_Ez, subplot_WAKIS, preproc_CST, preproc_WarpX
 
-def check_data(data):
+cwd = os.getcwd() + '/'
+
+def run_WAKIS(path, hf_name='Ez.h5', warpx_path=cwd, cst_path=cwd, flag_plot=True, flag_preproc=False, flag_warpx=True, flag_cst=False):
     '''
-    Check if all the needed variables for the wake solver are defined.
-    - Charge distribution (z.t) extraction from rho.h5 file [C/m]
-    - Beam charge q: defaul 1e-9 [C]
-    - Unit conversion: default 1e-3 [m]
+    Main routine of WAKIS. Obtains the Wake Potential and Impedance from 
+    pre-computed electromagnetic fields of structures with a passing beam
+
+    -pre-process data from EM solver and stored it in 'wakis.in', 'Ez.h5'
+    -Reads the input data dictionary from 'wakis.in' file
+    -Reads the 3d data of the Ez field from 'Ez.h5' file
+    -Performs the direct integration of the longitudinal Wake Potential
+    -Obtains the transverse Wake Potential through Panofsky Wenzel theorem
+    -Obtains the longitudinal and transverse Impedance
+    -Saves the data in a json dictionary in 'wakis.out' file
+    -Plots the results 
+
+    Parameters:
+    -----------
+    -path=cwd [default] Define the path to the 'wakis.in' and 'Ez.h5' file
+    -hf_name='Ez.h5' [default]. Name of the h5 file with the Ez field
+    -flag_plot=True [default]. Activate plot generation
+    -flag_preproc=False [default] preprocesses warpx/CST if wakis.in is not found
+    -flag_warpx=chooses warpx preproccessing if flag_preproc=True
+    -flag_cst=chooses cst preprocessing if flag_preproc=True
+
+    Inputs:
+    -------
+    - 'wakis.in' file, from preproc_CST() or preproc_WarpX()
+    - 'Ez.h5' file, from preproc_Ez()
+    if pre processing:
+    - 'warpx.out' or 'cst.out'
+
+    Outputs:
+    --------
+    -'wakis.out' file with the wake solver output
+    -'wakis.png' image with the wake potential and impedance plots
+
     '''
-    if data.get('charge_dist') is None:
-        hf_rho = h5py.File(out_path +'rho.h5', 'r')
+    t0 = time.time()
 
-        #get number of datasets
-        dataset_rho=[]
-        for key in hf_rho.keys():
-            dataset_rho.append(key)
+    print('---------------------')
+    print('|   Running WAKIS   |')
+    print('---------------------')
 
-        # Extract charge distribution [C/m] lambda(z,t)
-        charge_dist=[]
-        x=data.get('x')
-        y=data.get('y')
-        nt=data.get('nt')
+    if flag_preproc:
+        if not os.path.exists(path+'wakis.in'):
+            if flag_warpx:
+                preproc_WarpX(warpx_path)
+            elif flag_cst:
+                preproc_CST(cst_path)
+            else: print('[! WARNING] No EM solver was specified for preprocessing')
 
-        dx=x[2]-x[1]
-        dy=y[2]-y[1]
-        for n in range(nt):
-            rho=hf_rho.get(dataset_rho[n]) # [C/m3]
-            charge_dist.append(np.array(rho)*dx*dy) # [C/m]
+    # Read data from 'wakis.in'
+    data = read_WAKIS_in(path)
 
-        charge_dist=np.transpose(np.array(charge_dist)) # [C/m]
+    # Obtain longitudinal Wake potential
+    WP_3d, s = calc_long_WP(data, path, hf_name)
+    WP=WP_3d[1,1,:]
+    data['WP']=WP
+    data['s']=s
 
-        # Correct the maximum value so the integral along z = q
-        timestep=np.argmax(charge_dist[nz//2, :])   #max at cavity center
-        qz=np.sum(charge_dist[:,timestep])*dz       #charge along the z axis
-        charge_dist = charge_dist[int(nz/2-L_pipe/dz):int(nz/2+L_pipe/dz+1), :]*bunch_charge/qz    #total charge in the z axis
+    #Obtain transverse Wake potential
+    WPx, WPy = calc_trans_WP(WP_3d, s, data)
+    data['WPx']=WPx
+    data['WPy']=WPy
 
-        data['charge_dist']=charge_dist
-        print('charge_dist checked')
+    #Obtain the longitudinal impedance
+    Z, f = calc_long_Z(WP,s, data)
+    data['Z']=Z
+    data['f']=f
 
-    if data.get('q') is None:
-        data['q']=1e-9
-        print('q checked')
+    #Obtain transverse impedance
+    Zx, Zy = calc_trans_Z(WPx, WPy, s, data)
+    data['Zx']=Zx
+    data['Zy']=Zy
 
-    if data.get('unit') is None:
-        data['unit']=1e-3
-        print('unit checked')
+    #Elapsed time
+    t1 = time.time()
+    totalt = t1-t0
+    print('[PROGRESS] Calculation terminated in %ds' %totalt)
 
-    return data
+    #Save results in wakis.out
+    with open('wakis.out', 'w') as fp:
+        js.dump(data, fp,  indent=4)
+
+    print('[! OUT] wakis.out file succesfully generated') 
+
+    #Plot WAKIS
+    if flag_plot:
+        fig = subplot_WAKIS(data)
+        fig.savefig(path+'wakis.png',  bbox_inches='tight')
+        print('[! OUT] wakis.png file succesfully generated') 
+
+
+def calc_long_WP(data, path=cwd, hf_name='Ez.h5'):
+    '''
+    Obtains the longitudinal Wake Potential from the electric field Ez 
+    stored in 'hf_name.h5' using the direct method
+
+    Parameters:
+    -----------
+    -data: wakis.in data. Can be obtained using data=read_Wakis_in(cwd)
+    -path=cwd [default]. Path to the h5 file with the Ez field
+    -hf_name='Ez.h5' [default]. Name of the h5 file with the Ez field   
+
+    Returns:
+    -------- 
+    -WP_3d : Longitudinal wake potential matrix WP_3d(x,y,s) [V/pC]
+    -s : distance from bunch head to test position [m]
+
+    '''
+
+    # Read data
+    hf, dataset = read_Ez(path, hf_name)
+
+    t = data.get('t')               #simulated time [s]
+    z = data.get('z')               #z axis values  [m]
+    t_inj = data.get('init_time')   #injection time [s]
+    q = data.get('q')               #beam charge [C]
+    unit = data.get('unit')         #convserion from [m] to [xm]
+    z0 = data.get('z0')             #full domain length (+pmls) [m]
+
+    if z0 is None: z0 = z
+
+    # Aux variables
+    nt = len(t)
+    dt = t[2] - t[1]
+
+    nz = len(z)
+    zmax = max(z)
+    zmin = min(z)
+
+    zi=np.linspace(zmin, zmax, nt)  #interpolated z
+    dzi=zi[2]-zi[1]                 #interpolated z resolution
+
+    # Set Wake_length, s
+    Wake_length=nt*dt*c - (zmax-zmin) - t_inj*c
+
+    ns_neg=int(t_inj/dt)            #obtains the length of the negative part of s
+    ns_pos=int(Wake_length/(dt*c))  #obtains the length of the positive part of s
+    s=np.linspace(-t_inj*c, 0, ns_neg) #sets the values for negative s
+    s=np.append(s, np.linspace(0, Wake_length,  ns_pos))
+
+    print('[! INFO] Max simulated time = '+str(round(t[-1]*1.0e9,4))+' ns')
+    print('[! INFO] Wakelength = '+str(Wake_length/unit)+' mm')
+
+    # Initialize variables
+    Ezi = np.zeros((nt,nt))     #interpolated Ez field
+    ts = np.zeros((nt, len(s))) #result of (z+s)/c for each z, s
+
+    WP = np.zeros_like(s)
+    WP_3d = np.zeros((3,3,len(s)))
+
+    i0=1    #center of the array in x
+    j0=1    #center of the array in y
+
+    print('[PROGRESS] Calculating longitudinal wake potential WP...')
+    for i in range(-i0,i0+1,1):  
+        for j in range(-j0,j0+1,1):
+
+            # Interpolate Ez field
+            n=0
+            for n in range(nt):
+                Ez=hf.get(dataset[n])
+                Ezi[:, n]=np.interp(zi, z, Ez[Ez.shape[0]//2+i,Ez.shape[1]//2+j,:])
+
+            #-----------------------#
+            #     Obtain W||(s)     #
+            #-----------------------#
+
+            # s loop -------------------------------------#                                                           
+            n=0
+            for n in range(len(s)):    
+
+                #--------------------------------#
+                # integral between zmin and zmax #
+                #--------------------------------#
+
+                #integral of (Ez(xtest, ytest, z, t=(s+z)/c))dz
+                k=0
+                for k in range(0, nt): 
+                    ts[k,n]=(zi[k]+s[n])/c-zmin/c-t[0]+t_inj
+
+                    if ts[k,n]>0.0:
+                        it=int(ts[k,n]/dt)-1                                              #find index for t
+                        WP[n]=WP[n]+(Ezi[k, it])*dzi   #compute integral
+
+            WP=WP/(q*1e12)     # [V/pC]
+
+            WP_3d[i0+i,j0+j,:]=WP 
+
+    return WP_3d, s
+
+
+def calc_trans_WP(WP_3d, s, data):
+    '''
+    Obtains the transverse Wake Potetential through Panofsky-Wenzel theorem from the
+    pre-computed longitudinal wake potential in 3d
+
+    Parameters:
+    -----------
+    - output of calc_long_WP(data):
+        -WP_3d : Longitudinal wake potential matrix WP_3d(x,y,s) [V/pC]
+        -s : distance from bunch head to test position [m]
+    - data: wakis.in input data
+    
+    Returns:
+    --------
+    -WPx : Horizontal transverse wake potential WPx(s) [V/pC]
+    -WPy : Vertical transverse wake potential WPy(s) [V/pC]
+
+    '''
+
+    # Obtain x, y 
+    x=data.get('x')
+    y=data.get('y')
+    dx=x[2]-x[1]
+    dy=y[2]-y[1]
+
+    # Initialize variables
+    i0 = 1 
+    j0 = 1
+    ds = s[2]-s[1]
+    WPx = np.zeros_like(s)
+    WPy = np.zeros_like(s)
+    int_WP = np.zeros_like(WP_3d)
+
+    # Obtain the transverse wake potential 
+    print('[PROGRESS] Calculating transverse wake potential WPx, WPy...')
+    for n in range(len(s)):
+        for i in range(-i0,i0+1,1):
+            for j in range(-j0,j0+1,1):
+                # Perform the integral
+                int_WP[i0+i,j0+j,n]=np.sum(WP_3d[i0+i,j0+j,0:n])*ds 
+
+        # Perform the gradient (second order scheme)
+        WPx[n] = - (int_WP[i0+1,j0,n]-int_WP[i0-1,j0,n])/(2*dx)
+        WPy[n] = - (int_WP[i0,j0+1,n]-int_WP[i0,j0-1,n])/(2*dy)
+
+    return WPx, WPy
+
+def calc_long_Z(WP, s, data):
+    '''
+    Obtain impedance Z with single-sided DFT using 1000 samples
+
+    Parameters:
+    -----------
+    - output of calc_long_WP(data):
+        -WP : Longitudinal wake potential matrix WP(s) [V/pC]
+        -s : distance from bunch head to test position [m]
+    - data: wakis.in input data
+    
+    Returns:
+    --------
+    - Z: longitudinal impedance Z(w) [Ohm]
+    - f: DFT frequencies [Hz]
+
+
+    '''
+    print('[PROGRESS] Obtaining longitudinal impedance Z...')
+
+    #Check input
+    if WP.ndim > 1:
+        WP = WP[1,1,:]
+
+    # Retrieve variables
+    sigmaz=data.get('sigmaz')
+    q=data.get('q')
+    charge_dist= data.get('charge_dist')
+    z=data.get('z')
+
+    # Obtain charge distribution as a function of s, normalized
+    lambdas = np.interp(s, z, charge_dist/q)
+
+    # Set up the DFT computation
+    ds = s[2]-s[1]
+    fmax=1*c/sigmaz/3
+    N=int((c/ds)//fmax*1001) #to obtain a 1000 sample single-sided DFT
+
+    # Obtain DFTs
+    lambdafft = np.fft.fft(lambdas*c, n=N)
+    WPfft = np.fft.fft(WP*1e12, n=N)
+    ffft=np.fft.fftfreq(len(WPfft), ds/c)
+
+    # Mask invalid frequencies
+    mask  = np.logical_and(ffft >= 0 , ffft < fmax)
+    WPf = WPfft[mask]*ds
+    lambdaf = lambdafft[mask]*ds
+    f = ffft[mask]            # Positive frequencies
+
+    # Compute the impedance
+    Z = - WPf / lambdaf
+
+    return Z, f
+
+def calc_trans_Z(WPx, WPy, s, data):
+
+    print('[PROGRESS] Obtaining transverse impedance Zx, Zy...')
+    # Retrieve variables
+    sigmaz=data.get('sigmaz')
+    q=data.get('q')
+    charge_dist= data.get('charge_dist')
+    z=data.get('z')
+
+    # Obtain charge distribution as a function of s, normalized
+    lambdas = np.interp(s, z, charge_dist/q)
+
+    # Set up the DFT computation
+    ds = s[2]-s[1]
+    fmax=1*c/sigmaz/3
+    N=int((c/ds)//fmax*1001) #to obtain a 1000 sample single-sided DFT
+
+    # Obtain DFTs
+
+    # Normalized charge distribution λ(w) 
+    lambdafft = np.fft.fft(lambdas*c, n=N)
+    mask  = np.logical_and(ffft >= 0 , ffft < fmax)
+    lambdaf = lambdafft[mask]*ds
+
+    # Horizontal impedance Zx⊥(w)
+    WPxfft = np.fft.fft(WPx*1e12, n=N)
+    WPxf = WPxfft[mask]*ds
+
+    Zx = 1j * WPxf / lambdaf
+
+    # Vertical impedance Zy⊥(w)
+    WPyfft = np.fft.fft(WPy*1e12, n=N)
+    WPyf = WPyfft[mask]*ds
+
+    Zy = 1j * WPyf / lambdaf
+
+    return Zx, Zy
+
 
 def FFT(Xt, dt, fmax=None, r=2.0, flag_zeropadding=True):
     ''' 
@@ -210,175 +497,6 @@ def DFT(Xt, dt, fmax=None, Nf=1000):
     f=Zf
 
     return Xf, f
-
-
-def read_WarpX(out_path):
-    '''
-    Read the input data of warpx stored in a dict with pickle
-    '''
-    if os.path.exists(out_path+'input_data.txt'):
-        with open(out_path+'input_data.txt', 'rb') as handle:
-            input_data = pk.loads(handle.read())
-
-        return input_data
-    else: 
-        return None
-
-def read_Ez(out_path, filename='Ez.h5'):
-    '''
-    Read the Ez h5 file
-    '''
-    hf = h5py.File(out_path+filename, 'r')
-    print('Reading the h5 file: '+ out_path+filename)
-    print('--- Size of the file: '+str(round((os.path.getsize(out_path+filename)/10**9),2))+' Gb')
-
-    # get number of datasets
-    size_hf=0.0
-    dataset=[]
-    n_step=[]
-    for key in hf.keys():
-        size_hf+=1
-        dataset.append(key)
-        n_step.append(int(key.split('_')[1]))
-
-    # get size of matrix
-    Ez_0=hf.get(dataset[0])
-    shapex=Ez_0.shape[0]  
-    shapey=Ez_0.shape[1] 
-    shapez=Ez_0.shape[2] 
-    print('--- Ez field is stored in a matrix with shape '+str(Ez_0.shape)+' in '+str(int(size_hf))+' datasets')
-
-    return hf, dataset
-
-
-def calc_long_WP(data, out_path, filename='Ez.h5'):
-    '''
-    Obtains the Longitudinal Wake Potential 
-    from the electric field Ez 
-    through the Direct method
-
-    -data=read_WarpX(OUT_PATH)
-    '''
-
-    # Read data
-    hf, dataset = read_Ez(out_path, filename)
-
-    t = data.get('t')               #simulated time [s]
-    z = data.get('z')               #z axis values  [m]
-    t_inj = data.get('init_time')   #injection time [s]
-    q = data.get('q')               #beam charge [C]
-    unit = data.get('unit')         #convserion from [m] to [xm]
-    z0 = data.get('z0')             #full domain length (+pmls) [m]
-
-    if z0 is None: z0 = z
-
-    # Aux variables
-    nt = len(t)
-    dt = t[2] - t[1]
-
-    nz = len(z)
-    zmax = max(z)
-    zmin = min(z)
-
-    zi=np.linspace(zmin, zmax, nt)  #interpolated z
-    dzi=zi[2]-zi[1]                 #interpolated z resolution
-
-    # Set Wake_length, s
-    if len(z0)>len(z):
-        t_inj=t_inj + ((max(z0)-min(z0)) - (zmax-zmin))/c
-        Wake_length=nt*dt*c - (zmax-zmin) - t_inj*c
-    else:
-        Wake_length=nt*dt*c - (zmax-zmin) - t_inj*c
-
-    ns_neg=int(t_inj/dt)            #obtains the length of the negative part of s
-    ns_pos=int(Wake_length/(dt*c))  #obtains the length of the positive part of s
-    s=np.linspace(-t_inj*c, 0, ns_neg) #sets the values for negative s
-    s=np.append(s, np.linspace(0, Wake_length,  ns_pos))
-
-    print('--- Max simulated time = '+str(round(t[-1]*1.0e9,4))+' ns')
-    print('--- Wakelength = '+str(Wake_length/unit)+' mm')
-
-    # Initialize variables
-    Ezi = np.zeros((nt,nt))     #interpolated Ez field
-    ts = np.zeros((nt, len(s))) #result of (z+s)/c for each z, s
-
-    WP = np.zeros_like(s)
-    WP_3d = np.zeros((3,3,len(s)))
-
-    i0=1    #center of the array in x
-    j0=1    #center of the array in y
-
-    print('Calculating longitudinal wake potential...')
-    for i in range(-i0,i0+1,1):  
-        for j in range(-j0,j0+1,1):
-
-            # Interpolate Ez field
-            n=0
-            for n in range(nt):
-                Ez=hf.get(dataset[n])
-                Ezi[:, n]=np.interp(zi, z, Ez[i0+i,j0+j,:])
-
-            #-----------------------#
-            #     Obtain W||(s)     #
-            #-----------------------#
-
-            # s loop -------------------------------------#                                                           
-            n=0
-            for n in range(len(s)):    
-
-                #--------------------------------#
-                # integral between zmin and zmax #
-                #--------------------------------#
-
-                #integral of (Ez(xtest, ytest, z, t=(s+z)/c))dz
-                k=0
-                for k in range(0, nt): 
-                    ts[k,n]=(zi[k]+s[n])/c-zmin/c-t[0]+t_inj
-
-                    if ts[k,n]>0.0:
-                        it=int(ts[k,n]/dt)-1                                              #find index for t
-                        WP[n]=WP[n]+(Ezi[k, it])*dzi   #compute integral
-
-            WP=WP/(q*1e12)     # [V/pC]
-
-            WP_3d[i0+i,j0+j,:]=WP 
-
-    return WP_3d, s
-
-
-def calc_trans_WP(WP_3d, s, data):
-    '''
-    Obtains the transverse wake potetential 
-    through Panofsky-Wenzel theorem using the 
-    longitudinal wake potential calculation 
-    '''
-    # Obtain x, y 
-    x=data.get('x')
-    y=data.get('y')
-    dx=x[2]-x[1]
-    dy=y[2]-y[1]
-
-    # Initialize variables
-    i0 = 1 
-    j0 = 1
-    ds = s[2]-s[1]
-    WPx = np.zeros_like(s)
-    WPy = np.zeros_like(s)
-    int_WP = np.zeros_like(WP_3d)
-
-    # Obtain the transverse wake potential 
-    print('Calculating transverse wake potential...')
-    for n in range(len(s)):
-        for i in range(-i0,i0+1,1):
-            for j in range(-j0,j0+1,1):
-                # Perform the integral
-                int_WP[i0+i,j0+j,n]=np.sum(WP_3d[i0+i,j0+j,0:n])*ds 
-
-        # Perform the gradient (second order scheme)
-        WPx[n] = - (int_WP[i0+1,j0,n]-int_WP[i0-1,j0,n])/(2*dx)
-        WPy[n] = - (int_WP[i0,j0+1,n]-int_WP[i0,j0-1,n])/(2*dy)
-
-    return WPx, WPy
 
 def test_FT():
     #Proof of FFT / DFT algorithm performance with sines

@@ -18,7 +18,6 @@ pip install scikit-image, matplotlib, numpy
 '''
 import matplotlib.pyplot as plt
 import numpy as np
-
 from mpl_toolkits.mplot3d import axes3d
 from skimage import measure 
 
@@ -127,83 +126,4 @@ def next2power(n):
     return i
 
 
-def test_new_geometry():
-
-    '''
-    Test for creating new geometry for warpX
-    '''
-    from pywarpx import picmi
-
-    # Define the geometry
-    UNIT = 1e-3
-
-    # width of the taper (x-dir)
-    a = 50*UNIT
-
-    # intial height of the taper (y-dir)
-    b = 24*UNIT
-    # final length of the taper (y-dir)
-    target=12*UNIT
-
-    # length of the straight part (z-dir)
-    L1 = 15*UNIT
-    # length of the inclined part (z-dir)
-    L2 = 48*UNIT
-    # length of the target part (z-dir)
-    L3 = 15*UNIT
-    # total length (z-dir)
-    L = L1 + L2 + L3
-    # Define mesh cells per direction. !![has to be a 2^3 power]
-    nx = 64 
-    ny = 64
-    nz = 64
-
-    # Define mesh resolution in x, y, z
-    dh = 1.0*UNIT
-
-    #----------------------------------------------------------------------------
-
-    ##################################
-    # Define the mesh
-    ##################################
-
-    # mesh bounds for domain. Last 10 cells are PML
-    xmin = -nx*dh/2
-    xmax = nx*dh/2
-    ymin = -ny*dh/2
-    ymax = ny*dh/2
-    zmin = -nz*dh/2 
-    zmax = nz*dh/2
-
-    # mesh cell widths
-    dx=(xmax-xmin)/nx
-    dy=(ymax-ymin)/ny
-    dz=(zmax-zmin)/nz
-
-    # mesh arrays (center of the cell)
-    x0=np.linspace(xmin, xmax, nx)+dx/2
-    y0=np.linspace(ymin, ymax, ny)+dy/2
-    z0=np.linspace(zmin, zmax, nz)+dz/2
-
-    x, y, z = np.meshgrid(x0, y0, z0)
-
-    # Define the implicit function for the boundary conditions
-    BC = picmi.EmbeddedBoundary(
-        implicit_function="w=a; h=b*(z>-Z)*(z<-Z+L1)+c*(z>Z-L3)*(z<Z)+((c-b)/L2*(z-(-Z+L1))+b)*(z>-L2/2)*(z<L2/2); max(max(x-w/2,-w/2-x),max(y-h/2,-h/2-y))",
-        a=a, 
-        b=b, 
-        c=target, 
-        Z=L/2.0,
-        L1=L1, 
-        L2=L2, 
-        L3=L3
-    )
-
-    triang_implicit(fn=implicit_function, BC=BC, bbox=(-L/2,L/2))
-
-
-if __name__ == "__main__":
-
-    test_new_geometry()
-    
- 
+   
