@@ -11,15 +11,15 @@ to obtain the wake potential and impedance
 --- Stores the geometry and simulation input in a dictionary with pickle 
 
 '''
-import os
+import os, sys
 import sys
 import json as js
 
-from scipy.constants import c
-import h5py
-import wakis
+import numpy as np
+from scipy.constants import c, e
+from pywarpx import picmi
 
-from . import warpx
+import wakis
 
 #-----------------------------------------------------------------------
 
@@ -29,17 +29,16 @@ from . import warpx
 
 # output path
 
-path=os.getcwd() + '/doubletaper_out/'
-
 # simulation parameters
 CFL = 1.0               #Courant-Friedrichs-Levy criterion for stability
 NUM_PROC = 1            #number of mpi processors wanted to use
 UNIT = 1e-3             #conversion factor from input to [m]
-Wake_length=500*UNIT    #Wake potential length in s [m]
+Wake_length=100*UNIT    #Wake potential length in s [m]
 
 # flags
-flag_plot_geom = False
+flag_plot_geom = True
 flag_logfile = False
+flag_mask_pml = False
 
 # beam parameters
 q=1e-9                      #Total beam charge [C]
@@ -57,11 +56,6 @@ ysource = 0.0*UNIT
 # ---[quadrupolar impedance: test axis in a,0 or 0,a or a,a]
 xtest = 0.0*UNIT   
 ytest = 0.0*UNIT
-
-
-
-
-#----------------------------------------------------------------------------
 
 ##################################
 # Define the geometry
@@ -109,66 +103,22 @@ embedded_boundary = picmi.EmbeddedBoundary(
 dh = 1.0*UNIT
 
 if flag_plot_geom:
-    wakis.triang_implicit(fun=Wgeo.eval_implicit, BC=embedded_boundary, bbox=(-L/2,L/2))
+    wakis.triang_implicit(fun=wakis.eval_implicit, BC=embedded_boundary, bbox=(-L/2,L/2))
 
-#----------------------------------------------------------------------------
 
-beam = warpx.Beam(q=q,
-                sigmaz=sigmaz,
-                xsource=xsource,
-                ysource=ysource,
-                xtest=xtest,
-                ytest=ytest)
+#-----------------------------------------------------------------------
 
-domain = warpx.Domain(W,H,L)
+##################################
+# Run WarpX simulation
+##################################
 
-setup = warpx.setup(
-          Wake_length=Wake_length,  
-          beam=beam,
-          domain=domain,
-          embedded_boundary=embedded_boundary, 
-          dh=dh,
-          CFL = CFL,
-          NUM_PROC = NUM_PROC, 
-          UNIT = 1e-3, 
-          flag_plot_geom = flag_plot_geom, 
-          flag_logfile = flag_logfile, 
-          flag_mask_pml=flag_logfile
-          )
+# execute the file
+wakis.execfile('warpx.py')
 
-data = warpx.run(path=path, 
-          setup=setup)
 
-##########################
-#    Generate output     # #[TODO]
-##########################
+##################################
+# Run Wakis solver
+##################################
 
-# Create dictionary with input data. SI UNITs: [m], [s], [C]
-input_data = { 'init_time' : -t_offs, 
-         't' : t,
-         'x' : x[ixtest-1:ixtest+2],   
-         'y' : y[iytest-1:iytest+2],
-         'z' : z[zmask],
-         'nt' : max_steps,
-         'nx' : nx,
-         'ny' : ny,
-         'nz' : nz,
-         'L' : L,    
-         'sigmaz' : sigmaz,
-         'xsource' : xsource,
-         'ysource' : ysource,
-         'xtest' : xtest,
-         'ytest' : ytest,
-         'q' : bunch_charge, 
-         'charge_dist' : charge_dist,
-         'unit' : UNIT,
-         'x0' : x,
-         'y0' : y,
-         'z0' : z
-        }
+# Run wakis
 
-# write the input dictionary to a txt using pickle module
-with open(path+'input_data.txt', 'wb') as handle:
-    pk.dump(input_data, handle)
-
-#sys.stdout.close()

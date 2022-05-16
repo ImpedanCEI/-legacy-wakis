@@ -13,4 +13,4 @@ from proc import *
 
 from solver import *
 
-from bmk import *
+from bmk import *twine upload dist/*
