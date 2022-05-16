@@ -28,7 +28,7 @@ from .proc import read_WAKIS_in, read_Ez, subplot_WAKIS, preproc_CST, preproc_Wa
 
 cwd = os.getcwd() + '/'
 
-def run_WAKIS(path, hf_name='Ez.h5', warpx_path=cwd, cst_path=cwd, flag_plot=True, flag_preproc=False, flag_warpx=True, flag_cst=False):
+def run_WAKIS(path, hf_name='Ez.h5', warpx_path=cwd, cst_path=cwd, flag_plot=True, flag_preproc=True, flag_warpx=True, flag_cst=False):
     '''
     Main routine of WAKIS. Obtains the Wake Potential and Impedance from 
     pre-computed electromagnetic fields of structures with a passing beam

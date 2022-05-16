@@ -341,18 +341,21 @@ def preproc_rho(path):
     bunch=[]
     x=data.get('x')
     y=data.get('y')
+    z=data.get('z')
     nt=data.get('nt')
     q=data.get('q')
 
     dx=x[2]-x[1]
     dy=y[2]-y[1]
+    dz=z[2]-z[1]
 
     for n in range(nt):
         rho=hf_rho.get(dataset_rho[n]) # [C/m3]
         bunch.append(np.array(rho)*dx*dy) # [C/m]
 
     bunch=np.transpose(np.array(bunch)) # [C/m]
-
+    nz=bunch.shape[0]
+    
     # Correct the maximum value so the integral along z = q
     timestep=np.argmax(bunch[nz//2, :])   #max at cavity center
     qz=np.sum(bunch[:,timestep])*dz       #charge along the z axis
