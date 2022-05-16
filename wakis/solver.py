@@ -18,7 +18,7 @@ pip install matplotlib, numpy, scipy
 
 '''
 import os 
-import json as js
+import pickle as pk
 import time 
 
 import numpy as np
@@ -39,7 +39,7 @@ def run_WAKIS(path, hf_name='Ez.h5', warpx_path=cwd, cst_path=cwd, flag_plot=Tru
     -Performs the direct integration of the longitudinal Wake Potential
     -Obtains the transverse Wake Potential through Panofsky Wenzel theorem
     -Obtains the longitudinal and transverse Impedance
-    -Saves the data in a json dictionary in 'wakis.out' file
+    -Saves the data in a pickle dictionary in 'wakis.out' file
     -Plots the results 
 
     Parameters:
@@ -108,8 +108,8 @@ def run_WAKIS(path, hf_name='Ez.h5', warpx_path=cwd, cst_path=cwd, flag_plot=Tru
     print('[PROGRESS] Calculation terminated in %ds' %totalt)
 
     #Save results in wakis.out
-    with open('wakis.out', 'w') as fp:
-        js.dump(data, fp,  indent=4)
+    with open('wakis.out', 'wb') as fp:
+        pk.dump(data, fp)
 
     print('[! OUT] wakis.out file succesfully generated') 
 

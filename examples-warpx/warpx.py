@@ -15,6 +15,7 @@ pip install pywarpx, wakis, numpy, h5py
 '''
 
 import time
+import pickle as pk  
 
 import h5py
 from pywarpx import picmi
@@ -334,4 +335,6 @@ data = { 'init_time' : -t_offs,
 
 # write the input dictionary to a txt using pickle module
 with open(path+'warpx.out', 'wb') as fp:
-    dump(data, fp,  indent=4)
+    pk.dump(data, fp)
+
+print('[! OUT] warpx.out file succesfully generated') 

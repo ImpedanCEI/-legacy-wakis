@@ -17,7 +17,6 @@ pip install matplotlib, numpy, h5py, scipy
 
 import os 
 import pickle as pk
-import json as js
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -45,7 +44,7 @@ def read_WAKIS_in(path=cwd):
 
     if os.path.exists(path+'wakis.in'):
         with open(path+'wakis.in') as handle:
-            data = js.load(handle)
+            data = pk.loads(handle.read())
     else: 
         print('[! WARNING] wakis.in file not found')
         data=None
@@ -101,7 +100,7 @@ def preproc_WarpX(warpx_path, path=cwd):
 
     if os.path.exists(warpx_path+'warpx.out'):
         with open(warpx_path+'warpx.out', 'rb') as handle:
-            data = js.load(handle.read())
+            data = pk.loads(handle.read())
     else: 
         print('[! WARNING] warpx.out file not found')
         data=None
@@ -113,9 +112,9 @@ def preproc_WarpX(warpx_path, path=cwd):
     if data.get('charge_dist') is None:
         data['charge_dist'] = preproc_rho(warpx_path)
 
-    # Save dictionary with json
-    with open(path+'wakis.in', 'w') as fp:
-        js.dump(data, fp,  indent=4)
+    # Save dictionary with pickle
+    with open(path+'wakis.in', 'wb') as fp:
+        pk.dump(data, fp)
 
     print('[! OUT] wakis.in file succesfully generated') 
 
@@ -149,8 +148,8 @@ def preproc_CST(cst_path, hf_name='Ez.h5', path=cwd, **kwargs):
 
     # Save kwargs in cst.out
     if bool(kwargs):
-        with open(cst_path+'cst.out', 'w') as fp:
-            js.dump(kwargs, fp,  indent=4)
+        with open(cst_path+'cst.out', 'wb') as fp:
+            pk.dump(kwargs, fp)
 
     # Pre-process 3d Ez field data
     preproc_Ez(cst_path=cst_path,
@@ -165,14 +164,14 @@ def preproc_CST(cst_path, hf_name='Ez.h5', path=cwd, **kwargs):
 
     # Read cst.out
     with open(cst_path+'cst.out') as handle:
-        data = js.load(handle)
+        data = pk.loads(handle.read())
 
     # Check input data
     data=check_input(data)
 
     # Generate wakis.in file
-    with open(path+'wakis.in', 'w') as fp:
-        js.dump(data, fp,  indent=4)
+    with open(path+'wakis.in', 'wb') as fp:
+        pk.dump(data, fp)
 
     print('[! OUT] wakis.in file succesfully generated')
     
@@ -304,9 +303,8 @@ def preproc_Ez(cst_path, hf_name='Ez.h5', out_path=cwd):
     print('[INFO] Ez field is stored in a matrix with shape '+str(Ez.shape)+' in '+str(int(nsteps))+' datasets')
     print('[! OUT] hdf5 file'+hf_name+'succesfully generated')
     
-    #[TODO] implement cst.out generation
     with open(cst_path+'cst.out') as handle:
-        data = js.load(handle)
+        data = pk.loads(handle.read())
 
     unit=data.get('unit')
 
@@ -316,9 +314,9 @@ def preproc_Ez(cst_path, hf_name='Ez.h5', out_path=cwd):
     data['z'] = z*unit,
     data['t'] = np.array(t)
 
-    # Update cst.out with json
-    with open(cst_path+'cst.out', 'w') as fp:
-        js.dump(data, fp,  indent=4)
+    # Update cst.out with pickle
+    with open(cst_path+'cst.out', 'wb') as fp:
+        pk.dump(data, fp)
 
     print('[! OUT] cst.out file updated with field data')
     
@@ -329,7 +327,7 @@ def preproc_rho(path):
 
     '''
     with open(path+'warpx.out', 'rb') as handle:
-            data = js.load(handle.read())
+            data = pk.loads(handle.read())
 
     hf_rho = h5py.File(path +'rho.h5', 'r')
     print("[PROGRESS] Processing rho.h5 file")
@@ -363,9 +361,9 @@ def preproc_rho(path):
     # Add to dict
     data['charge_dist'] = charge_dist
 
-    # Update cst.out with json
-    with open(cst_path+'warpx.out', 'w') as fp:
-        js.dump(data, fp,  indent=4)
+    # Update cst.out with pickle
+    with open(cst_path+'warpx.out', 'wb') as fp:
+        pk.dump(data, fp)
 
     print('[! OUT] warpx.out file updated with charge distribution data')
     
@@ -397,7 +395,7 @@ def preproc_lambda(cst_path):
         print("[! WARNING] file for charge distribution not found")
 
     with open(cst_path+'cst.out') as handle:
-        data = js.load(handle)
+        data = pk.loads(handle.read())
 
     # Update dictionary with charge distribution vs z
     z = data.get('z')           
@@ -405,9 +403,9 @@ def preproc_lambda(cst_path):
     data['charge_dist']=charge_dist
     data['s_charge_dist']=s
 
-    # Update cst.out with json
-    with open(cst_path+'cst.out', 'w') as fp:
-        js.dump(data, fp,  indent=4)
+    # Update cst.out with pickle
+    with open(cst_path+'cst.out', 'wb') as fp:
+        pk.dump(data, fp)
 
     print('[! OUT] cst.out file updated with charge distribution data')
     
@@ -464,7 +462,7 @@ def read_WAKIS_out(path=cwd):
     '''
     if os.path.exists(path+'wakis.out'):
         with open('wakis.in') as handle:
-            data = js.load(handle)
+            data = pk.loads(handle.read())
     else: 
         print('[! WARNING] wakis.out file not found')
         data=None 

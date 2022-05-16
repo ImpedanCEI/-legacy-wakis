@@ -18,9 +18,7 @@ Wakis
 - Generates the plots in wakis.png
 
 '''
-import os, sys
-import sys
-import json as js
+import os
 
 import numpy as np
 from scipy.constants import c, e
@@ -38,7 +36,7 @@ import wakis
 CFL = 1.0               #Courant-Friedrichs-Levy criterion for stability
 NUM_PROC = 1            #number of mpi processors wanted to use
 UNIT = 1e-3             #conversion factor from input to [m]
-Wake_length=100*UNIT    #Wake potential length in s [m]
+Wake_length=10*UNIT    #Wake potential length in s [m]
 
 # flags
 flag_plot_geom = True
