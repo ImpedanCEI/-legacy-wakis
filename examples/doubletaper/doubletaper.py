@@ -26,8 +26,6 @@ from pywarpx import picmi
 
 import wakis
 
-path = os.getcwd() + '/'
-
 #-----------------------------------------------------------------------
 
 ##################################
@@ -118,7 +116,7 @@ if flag_plot_geom:
 ##################################
 
 # execute the file
-wakis.execfile('warpx.py')
+wakis.execfile('../warpx.py')
 
 
 ##################################
@@ -126,4 +124,4 @@ wakis.execfile('warpx.py')
 ##################################
 
 # Run wakis
-wakis.run_WAKIS(path)
+wakis.run_WAKIS()
