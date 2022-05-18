@@ -14,7 +14,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="wakis",
-    version="0.0.6",
+    version="0.0.8",
     description="Wakis obtains Wake potential and Impedance from pre-computed fields",
     author="Elena de la Fuente Garcia",
     author_email="elena.de.la.fuente.garcia@cern.ch",
@@ -27,7 +27,6 @@ setup(
         'matplotlib',
         'numpy',
         'scipy',
-        'scikit-image >= 0.17',
         'h5py',
     ],
     classifiers=[
