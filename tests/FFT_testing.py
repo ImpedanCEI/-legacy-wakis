@@ -13,8 +13,6 @@ from scipy.special import iv
 from copy import copy
 import pickle as pk   
 
-import solver_module as Wsol
-
 # UNIT=1e-3 #mm to m
 
 # # Gaussian bunch 
@@ -404,20 +402,21 @@ WPf_quad, f=Wsol.DFT(WP_quad*1e12, ds/c, fmax=max(f_cst), Nf=2001)
 '''
 lambdafft = np.fft.fft(bunch_i/q*c, n=200000)
 WPfft = np.fft.fft(WP*1e12, n=200000)
+WPfft_dip = np.fft.fft(WP_dip*1e12, n=200000)
+WPfft_quad = np.fft.fft(WP_quad*1e12, n=200000)
 ffft=np.fft.fftfreq(len(WPfft), ds/c)
 
 mask  = np.logical_and(ffft >= 0 , ffft < 5.5*1e9)
 WPf = WPfft[mask]*ds
+WPf_dip = WPfft_dip[mask]*ds
+WPf_quad = WPfft_quad[mask]*ds
 lambdaf = lambdafft[mask]*ds
 f = ffft[mask]            # Positive frequencies
 
-#lambdaf=np.interp(f,f2,lambdaf)*c/(2*pi)
-lambdaf_cst=np.interp(f, f_spectrum, spectrum/q)*c
-
 # Compute the impedance
 Z = abs(- WPf / lambdaf)
-#Z_dip = abs(1j* WPf_dip / lambdaf) 
-#Z_quad = abs(1j* WPf_quad / lambdaf)
+Z_dip = abs(1j* WPf_dip / lambdaf) 
+Z_quad = abs(1j* WPf_quad / lambdaf)
 
 
 # Plot Impedance and maximum frequency
@@ -425,9 +424,18 @@ fig = plt.figure(1, figsize=(6,4), dpi=200, tight_layout=True)
 ax=fig.gca()
 
 # add CST fft result
-
+'''
 ax.plot(f*1.0e-9, Z, lw=1.2, color='red', label='Z// from numpy FFT')
 ax.plot(f_cst*1.0e-9, Z_cst, lw=1.2, color='black', ls='--', label='Z// from CST')
+'''
+'''
+
+ax.plot(f*1.0e-9, Z_dip, lw=1.2, color='red', label='Z dipolar from numpy FFT')
+ax.plot(f_cst*1.0e-9, Z_dip_cst, lw=1.2, color='black', ls='--', label='Z dipolar from CST')
+'''
+
+ax.plot(f*1.0e-9, Z_quad, lw=1.2, color='red', label='Z quadrupolar from numpy FFT')
+ax.plot(f_cst*1.0e-9, Z_quad_cst, lw=1.2, color='black', ls='--', label='Z quadrupolar from CST')
 
 #ax.plot(f_cst*1.0e-9, Z_cst/Z_dip_cst, lw=1.2, color='black', label='Z// from CST')
 #ax.plot(f*1.0e-9, Z/Z_dip, lw=1.2, color='red', label='Z// from numpy FFT')
@@ -444,6 +452,7 @@ ax.set(title='Longitudinal impedance Z from CST magnitude',
 ax.legend(loc='best')
 ax.grid(True, color='gray', linewidth=0.2)
 plt.show()
+
 
 
 

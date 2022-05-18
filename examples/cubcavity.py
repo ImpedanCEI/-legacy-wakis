@@ -1,19 +1,24 @@
 '''
 doubletaper.py
 
-Script to perform simulations of a in-out taper in WarpX 
-to obtain the wake potential and impedance
+Script to perform EM simulations of a in-out taper in WarpX 
+- Define the simulation length based on the Wake length
+- Define the test and source positions of the beam
+- Define the geometru with implicit function object
 
---- Define the simulation length based on the Wake length
---- Define the test and source positions of the beam
---- Performs the simulation with WarpX-PIC solver
---- Stores the electric field Ez and charge distribution in .h5 file
---- Stores the geometry and simulation input in a dictionary with pickle 
+WarpX
+- Performs the simulation with WarpX-PIC solver
+- Saves the electric field Ez and charge distribution in Ez.h5 file
+- Saves the 3d charge distribution in rho.h5 file 
+- Generates warpx.out file with simultation 1d data
+
+Wakis
+- Run wakis solver to obtain wake potential and impedance
+- Saves the results in wakis.out file
+- Generates the plots in wakis.png
 
 '''
-import os, sys
-import sys
-import json as js
+import os
 
 import numpy as np
 from scipy.constants import c, e
@@ -27,13 +32,11 @@ import wakis
 # User defined variables
 ##################################
 
-# output path
-
 # simulation parameters
 CFL = 1.0               #Courant-Friedrichs-Levy criterion for stability
 NUM_PROC = 1            #number of mpi processors wanted to use
 UNIT = 1e-3             #conversion factor from input to [m]
-Wake_length=100*UNIT    #Wake potential length in s [m]
+Wake_length=10*UNIT    #Wake potential length in s [m]
 
 # flags
 flag_plot_geom = True
@@ -121,4 +124,4 @@ wakis.execfile('warpx.py')
 ##################################
 
 # Run wakis
-
+wakis.run_WAKIS(path)
