@@ -18,12 +18,8 @@ pip install scikit-image, matplotlib, numpy
 
 '''
 import sys
-
 import matplotlib.pyplot as plt
 import numpy as np
-from mpl_toolkits.mplot3d import axes3d
-from skimage import measure 
-
 
 def triang_implicit(fun, BC=None, bbox=(-3,3)):
     ''' 
@@ -41,6 +37,13 @@ def triang_implicit(fun, BC=None, bbox=(-3,3)):
          where the implicit function is close to 0 and 
          otherwise in float('nan') 
     ''' 
+    try:
+        from mpl_toolkits.mplot3d import axes3d
+        from skimage import measure 
+    except ImportError:
+        raise ImportError('To use this function ypu need to install "scikit-image" package v>= 0.17 ')
+
+
     # Define box limits
     bmin, bmax = bbox
 

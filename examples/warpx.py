@@ -1,7 +1,7 @@
 '''
--------------------------------
-|  WAKIS+ warpx simulations   |
--------------------------------
+------------------------------
+|  WAKIS+WarpX simulations   |
+------------------------------
 Contains auxiliary script to setup and run WarpX simulations
 
 Usage:
@@ -23,12 +23,15 @@ from pywarpx import libwarpx, fields, callbacks
 import pywarpx.fields as pwxf
 import numpy.random as random
 
-
+'''
 # create output directory 
 path=os.getcwd() + '/out_'+os.path.basename(__file__)+'/'
 
 if not os.path.exists(path):
     os.mkdir(path)
+'''
+path=os.getcwd() + '/'
+
 
 ##################################
 # Define the mesh
@@ -230,7 +233,7 @@ t0 = time.time()
 
 if flag_logfile:
     # Create logfile
-    sys.stdout = open(path+"out/log.txt", "w")
+    sys.stdout = open(path+"log.txt", "w")
 
 # Create h5 files overwriting previous ones
 
@@ -265,7 +268,7 @@ t=[]
 rho_t=[]
 
 # Perform the simulation --------------------------------------
-print('[WARPX][PROGRESS] Starting simulation with '+str(max_steps)+'...' )
+print('[WARPX][PROGRESS] Starting simulation with a total of '+str(max_steps)+'timesteps...' )
 for n_step in range(max_steps):
 
     print(n_step)
