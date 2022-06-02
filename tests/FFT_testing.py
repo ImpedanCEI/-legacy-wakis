@@ -13,8 +13,6 @@ from scipy.special import iv
 from copy import copy
 import pickle as pk   
 
-import solver_module as Wsol
-
 # UNIT=1e-3 #mm to m
 
 # # Gaussian bunch 

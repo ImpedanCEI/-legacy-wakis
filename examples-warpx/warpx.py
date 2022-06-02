@@ -74,7 +74,8 @@ else:
 n_pml=(nz-L/dz)//2 
 
 #Injection position
-z_inj=zmin+n_pml/2*dz
+z_inj=zmin+5*dz
+#z_inj=zmin+n_pml/2*dz
 
 ##################################
 # Beam Setup
@@ -111,7 +112,9 @@ solver = picmi.ElectromagneticSolver(grid=grid, method='Yee', cfl=CFL,
                                      warpx_pml_ncell = n_pml,
                                      warpx_do_pml_in_domain = True,
                                      warpx_pml_has_particles = True,
-                                     warpx_do_pml_j_damping = True) #Turned True for the pml damping
+                                     warpx_do_pml_j_damping = True, #Turned True for the pml damping
+                                     warpx_adjusted_pml = True, 
+                                     )
 
 
 ##########################
@@ -183,7 +186,7 @@ print('[WARPX][INFO] Beam center set to ('+str(round(x[ixsource]/UNIT,3))+','+st
 
 bunch_rms_size            = [sigmax, sigmay, sigmaz]
 bunch_rms_velocity        = [0.,0.,0.]
-bunch_centroid_position   = [xsource, ysource, z_inj] #Always inject in the middle of the PML
+bunch_centroid_position   = [xsource, ysource, z_inj] #Always inject in position 5
 bunch_centroid_velocity   = [0.,0.,beam_uz]
 
 # time profile of a gaussian beam
