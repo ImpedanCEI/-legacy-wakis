@@ -4,15 +4,34 @@
 ------------------------
 Functions to pre-process Wakis input and post-process the output
 
-Functions: [TODO]
----------
-- a
-- b
-- c
+Functions:
+----------
+Pre-processing functions:
+- read_WAKIS_in
+- read_Ez
+- preproc_WarpX
+- preproc_CST
+- preproc_Ez
+- preproc_rho
+- preproc_lambda
+- check_input
+
+Post-processing functions:
+- read_WAKIS_out
+- animate_Ez
+- contour_Ez
+- plot_charge_dist
+- plot_long_WP
+- plot_long_Z
+- plot_trans_WP
+- plot_trans_Z
+- plot_WAKIS
+- subplot_WAKIS
 
 Requirements:
 ------------- 
 pip install matplotlib, numpy, h5py, scipy
+
 '''
 
 import os 
@@ -43,7 +62,7 @@ def read_WAKIS_in(path=cwd):
     '''
 
     if os.path.exists(path+'wakis.in'):
-        with open(path+'wakis.in') as handle:
+        with open(path+'wakis.in','rb') as handle:
             data = pk.loads(handle.read())
     else: 
         print('[! WARNING] wakis.in file not found')
@@ -91,6 +110,7 @@ def preproc_WarpX(warpx_path, path=cwd):
     Parameters:
     -----------
     - warpx_path: path to the warpx output file. 
+    - path: path to the wakis.in file
 
     Outputs:
     --------
@@ -299,11 +319,13 @@ def preproc_Ez(cst_path, hf_name='Ez.h5', out_path=cwd):
         f.close()
 
     hf_Ez.close()    
+
+
     print('[PROGRESS] Finished scanning files')
     print('[INFO] Ez field is stored in a matrix with shape '+str(Ez.shape)+' in '+str(int(nsteps))+' datasets')
     print('[! OUT] hdf5 file'+hf_name+'succesfully generated')
     
-    with open(cst_path+'cst.out') as handle:
+    with open(cst_path+'cst.out', 'rb') as handle:
         data = pk.loads(handle.read())
 
     unit=data.get('unit')
@@ -341,18 +363,21 @@ def preproc_rho(path):
     bunch=[]
     x=data.get('x')
     y=data.get('y')
+    z=data.get('z')
     nt=data.get('nt')
     q=data.get('q')
 
     dx=x[2]-x[1]
     dy=y[2]-y[1]
+    dz=z[2]-z[1]
 
     for n in range(nt):
         rho=hf_rho.get(dataset_rho[n]) # [C/m3]
         bunch.append(np.array(rho)*dx*dy) # [C/m]
 
     bunch=np.transpose(np.array(bunch)) # [C/m]
-
+    nz=bunch.shape[0]
+    
     # Correct the maximum value so the integral along z = q
     timestep=np.argmax(bunch[nz//2, :])   #max at cavity center
     qz=np.sum(bunch[:,timestep])*dz       #charge along the z axis
@@ -361,8 +386,8 @@ def preproc_rho(path):
     # Add to dict
     data['charge_dist'] = charge_dist
 
-    # Update cst.out with pickle
-    with open(cst_path+'warpx.out', 'wb') as fp:
+    # Update warpx.out with pickle
+    with open(path+'warpx.out', 'wb') as fp:
         pk.dump(data, fp)
 
     print('[! OUT] warpx.out file updated with charge distribution data')
@@ -461,7 +486,7 @@ def read_WAKIS_out(path=cwd):
     - out_path: path to the wakis output file. 
     '''
     if os.path.exists(path+'wakis.out'):
-        with open('wakis.in') as handle:
+        with open('wakis.out', 'rb') as handle:
             data = pk.loads(handle.read())
     else: 
         print('[! WARNING] wakis.out file not found')

@@ -5,6 +5,5 @@ requires = ["setuptools>=42",
 		'matplotlib',
 		'numpy',
 		'scipy',
-		'scikit-image >= 0.17',
 		'h5py',
 			]
