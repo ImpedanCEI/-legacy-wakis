@@ -2,7 +2,9 @@
 *.png
 *.csv
 *.cgmlog
+*.h5
 *.out
+*.in
 
 #folders to ignore
 **/images
