@@ -13,7 +13,7 @@ Requirements:
 pip install pywarpx, wakis, numpy, h5py
 
 '''
-
+import os
 import time
 import pickle as pk  
 
@@ -271,7 +271,7 @@ t=[]
 rho_t=[]
 
 # Perform the simulation --------------------------------------
-print('[WARPX][PROGRESS] Starting simulation with a total of '+str(max_steps)+'timesteps...' )
+print('[WARPX][PROGRESS] Starting simulation with a total of '+str(max_steps)+' timesteps...' )
 for n_step in range(max_steps):
 
     print(n_step)
