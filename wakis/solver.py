@@ -174,8 +174,8 @@ def calc_long_WP(data, path=cwd, hf_name='Ez.h5'):
     s=np.linspace(-t_inj*c, 0, ns_neg) #sets the values for negative s
     s=np.append(s, np.linspace(0, Wake_length,  ns_pos))
 
-    print('[! INFO] Max simulated time = '+str(round(t[-1]*1.0e9,4))+' ns')
-    print('[! INFO] Wakelength = '+str(Wake_length/unit)+' mm')
+    print('[INFO] Max simulated time = '+str(round(t[-1]*1.0e9,4))+' ns')
+    print('[INFO] Wakelength = '+str(Wake_length/unit)+' mm')
 
     # Initialize variables
     Ezi = np.zeros((nt,nt))     #interpolated Ez field
@@ -347,6 +347,7 @@ def calc_trans_Z(WPx, WPy, s, data):
 
     # Normalized charge distribution λ(w) 
     lambdafft = np.fft.fft(lambdas*c, n=N)
+    ffft=np.fft.fftfreq(len(lambdafft), ds/c)
     mask  = np.logical_and(ffft >= 0 , ffft < fmax)
     lambdaf = lambdafft[mask]*ds
 
