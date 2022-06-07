@@ -92,6 +92,13 @@ def run_WAKIS(path=None, hf_name='Ez.h5', warpx_path=None, cst_path=None, flag_p
     data['WP']=WP
     data['s']=s
 
+    # Obtain charge distribution as a function of s, normalized
+    charge_dist = data.get('charge_dist')
+    q= data.get('q')
+    z=data.get('z')
+    lambdas = np.interp(s, z, charge_dist/q)
+    data['lambda']=lambdas
+
     #Obtain transverse Wake potential
     WPx, WPy = calc_trans_WP(WP_3d, s, data)
     data['WPx']=WPx

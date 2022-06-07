@@ -981,8 +981,8 @@ def subplot_WAKIS(data, flag_charge_dist=True, flag_plot_Real=False, flag_plot_I
 
     if flag_plot_Abs:
         # obtain the maximum frequency and plot
-        ifmax=np.argmax(Zx)
-        ax4.plot(f[ifmax]*1e-9, Zx[ifmax], marker='o', markersize=4.0, color='green')
+        ifxmax=np.argmax(Zx)
+        ax4.plot(f[ifxmax]*1e-9, Zx[ifxmax], marker='o', markersize=4.0, color='green')
         ax4.annotate(str(round(f[ifxmax]*1e-9,2))+ ' GHz', xy=(f[ifxmax]*1e-9,Zx[ifxmax]), xytext=(-50,-5), textcoords='offset points', color='green') 
         ax4.plot(f*1e-9, Zx, lw=1, color='g', marker='s', markersize=2., label='Zx⊥(w)')
 
