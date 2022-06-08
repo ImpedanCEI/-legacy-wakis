@@ -1,0 +1,750 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>wakis.solver &mdash; Wakis 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> Wakis
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../usersguide.html">User’s guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../physicsguide.html">Physics Manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">Wakis code</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Wakis</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>wakis.solver</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for wakis.solver</h1><div class="highlight"><pre>
+<span></span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">-----------------------</span>
+<span class="sd">| WAKIS solver module |</span>
+<span class="sd">-----------------------</span>
+<span class="sd">Functions for WAKIS solver</span>
+
+<span class="sd">Functions: </span>
+<span class="sd">---------</span>
+<span class="sd">- run_WAKIS(): main routine</span>
+<span class="sd">- calc_long_WP(): obtains Wake potential WP(x,y,s) form Ez(x,y,z,t) field</span>
+<span class="sd">- calc_trans_WP(): obtains transverse Wake potential WPx(s), WPy(s) from WP(x,y,s)</span>
+<span class="sd">- calc_long_Z(): obtains Impedance Z(w) from WP(s) and charge distribution λ(s)</span>
+<span class="sd">- calc_trans_Z(): obtains transverse Impedance Zx(w), Zy(w) from WPx(s), WPy(s) and charge distribution λ(s)</span>
+
+<span class="sd">Requirements:</span>
+<span class="sd">------------- </span>
+<span class="sd">pip install matplotlib, numpy, scipy</span>
+
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="kn">import</span> <span class="nn">os</span> 
+<span class="kn">import</span> <span class="nn">pickle</span> <span class="k">as</span> <span class="nn">pk</span>
+<span class="kn">import</span> <span class="nn">time</span> 
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.constants</span> <span class="kn">import</span> <span class="n">c</span><span class="p">,</span> <span class="n">pi</span>
+
+<span class="kn">from</span> <span class="nn">.proc</span> <span class="kn">import</span> <span class="n">read_WAKIS_in</span><span class="p">,</span> <span class="n">read_Ez</span><span class="p">,</span> <span class="n">subplot_WAKIS</span><span class="p">,</span> <span class="n">preproc_CST</span><span class="p">,</span> <span class="n">preproc_WarpX</span>
+
+<span class="n">cwd</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span> <span class="o">+</span> <span class="s1">&#39;/&#39;</span>
+
+<div class="viewcode-block" id="run_WAKIS"><a class="viewcode-back" href="../../wakis.html#wakis.solver.run_WAKIS">[docs]</a><span class="k">def</span> <span class="nf">run_WAKIS</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">hf_name</span><span class="o">=</span><span class="s1">&#39;Ez.h5&#39;</span><span class="p">,</span> <span class="n">warpx_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cst_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">flag_plot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">flag_preproc</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">flag_warpx</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">flag_cst</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Main routine of WAKIS. Obtains the Wake Potential and Impedance from </span>
+<span class="sd">    pre-computed electromagnetic fields of structures with a passing beam</span>
+
+<span class="sd">    -pre-process data from EM solver and stored it in &#39;wakis.in&#39;, &#39;Ez.h5&#39;</span>
+<span class="sd">    -Reads the input data dictionary from &#39;wakis.in&#39; file</span>
+<span class="sd">    -Reads the 3d data of the Ez field from &#39;Ez.h5&#39; file</span>
+<span class="sd">    -Performs the direct integration of the longitudinal Wake Potential</span>
+<span class="sd">    -Obtains the transverse Wake Potential through Panofsky Wenzel theorem</span>
+<span class="sd">    -Obtains the longitudinal and transverse Impedance</span>
+<span class="sd">    -Saves the data in a pickle dictionary in &#39;wakis.out&#39; file</span>
+<span class="sd">    -Plots the results </span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    -path=cwd [default] Define the path to the &#39;wakis.in&#39; and &#39;Ez.h5&#39; file</span>
+<span class="sd">    -hf_name=&#39;Ez.h5&#39; [default]. Name of the h5 file with the Ez field</span>
+<span class="sd">    -flag_plot=True [default]. Activate plot generation</span>
+<span class="sd">    -flag_preproc=False [default] preprocesses warpx/CST if wakis.in is not found</span>
+<span class="sd">    -flag_warpx=chooses warpx preproccessing if flag_preproc=True</span>
+<span class="sd">    -flag_cst=chooses cst preprocessing if flag_preproc=True</span>
+
+<span class="sd">    Inputs:</span>
+<span class="sd">    -------</span>
+<span class="sd">    - &#39;wakis.in&#39; file, from preproc_CST() or preproc_WarpX()</span>
+<span class="sd">    - &#39;Ez.h5&#39; file, from preproc_Ez()</span>
+<span class="sd">    if pre processing:</span>
+<span class="sd">    - &#39;warpx.out&#39; or &#39;cst.out&#39;</span>
+
+<span class="sd">    Outputs:</span>
+<span class="sd">    --------</span>
+<span class="sd">    -&#39;wakis.out&#39; file with the wake solver output</span>
+<span class="sd">    -&#39;wakis.png&#39; image with the wake potential and impedance plots</span>
+
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span> <span class="o">+</span> <span class="s1">&#39;/&#39;</span>
+    <span class="k">if</span> <span class="n">warpx_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">warpx_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span> <span class="o">+</span> <span class="s1">&#39;/&#39;</span>
+    <span class="k">if</span> <span class="n">cst_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">cst_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span> <span class="o">+</span> <span class="s1">&#39;/&#39;</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;---------------------&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;|   Running WAKIS   |&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;---------------------&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">flag_preproc</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="o">+</span><span class="s1">&#39;wakis.in&#39;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">flag_warpx</span><span class="p">:</span>
+                <span class="n">preproc_WarpX</span><span class="p">(</span><span class="n">warpx_path</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">flag_cst</span><span class="p">:</span>
+                <span class="n">preproc_CST</span><span class="p">(</span><span class="n">cst_path</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[! WARNING] No EM solver was specified for preprocessing&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Read data from &#39;wakis.in&#39;</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">read_WAKIS_in</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="c1"># Obtain longitudinal Wake potential</span>
+    <span class="n">WP_3d</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">calc_long_WP</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">hf_name</span><span class="p">)</span>
+    <span class="n">WP</span><span class="o">=</span><span class="n">WP_3d</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,:]</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;WP&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">WP</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;s&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">s</span>
+
+    <span class="c1"># Obtain charge distribution as a function of s, normalized</span>
+    <span class="n">charge_dist</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;charge_dist&#39;</span><span class="p">)</span>
+    <span class="n">q</span><span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;q&#39;</span><span class="p">)</span>
+    <span class="n">z</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">)</span>
+    <span class="n">lambdas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">charge_dist</span><span class="o">/</span><span class="n">q</span><span class="p">)</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;lambda&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">lambdas</span>
+
+    <span class="c1">#Obtain transverse Wake potential</span>
+    <span class="n">WPx</span><span class="p">,</span> <span class="n">WPy</span> <span class="o">=</span> <span class="n">calc_trans_WP</span><span class="p">(</span><span class="n">WP_3d</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;WPx&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">WPx</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;WPy&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">WPy</span>
+
+    <span class="c1">#Obtain the longitudinal impedance</span>
+    <span class="n">Z</span><span class="p">,</span> <span class="n">f</span> <span class="o">=</span> <span class="n">calc_long_Z</span><span class="p">(</span><span class="n">WP</span><span class="p">,</span><span class="n">s</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;Z&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">Z</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;f&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">f</span>
+
+    <span class="c1">#Obtain transverse impedance</span>
+    <span class="n">Zx</span><span class="p">,</span> <span class="n">Zy</span> <span class="o">=</span> <span class="n">calc_trans_Z</span><span class="p">(</span><span class="n">WPx</span><span class="p">,</span> <span class="n">WPy</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;Zx&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">Zx</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;Zy&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">Zy</span>
+
+    <span class="c1">#Elapsed time</span>
+    <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">totalt</span> <span class="o">=</span> <span class="n">t1</span><span class="o">-</span><span class="n">t0</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[PROGRESS] Calculation terminated in </span><span class="si">%d</span><span class="s1">s&#39;</span> <span class="o">%</span><span class="n">totalt</span><span class="p">)</span>
+
+    <span class="c1">#Save results in wakis.out</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;wakis.out&#39;</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
+        <span class="n">pk</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">fp</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[! OUT] wakis.out file succesfully generated&#39;</span><span class="p">)</span> 
+
+    <span class="c1">#Plot WAKIS</span>
+    <span class="k">if</span> <span class="n">flag_plot</span><span class="p">:</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">subplot_WAKIS</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">path</span><span class="o">+</span><span class="s1">&#39;wakis.png&#39;</span><span class="p">,</span>  <span class="n">bbox_inches</span><span class="o">=</span><span class="s1">&#39;tight&#39;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[! OUT] wakis.png file succesfully generated&#39;</span><span class="p">)</span> </div>
+
+
+<div class="viewcode-block" id="calc_long_WP"><a class="viewcode-back" href="../../wakis.html#wakis.solver.calc_long_WP">[docs]</a><span class="k">def</span> <span class="nf">calc_long_WP</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">cwd</span><span class="p">,</span> <span class="n">hf_name</span><span class="o">=</span><span class="s1">&#39;Ez.h5&#39;</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Obtains the longitudinal Wake Potential from the electric field Ez </span>
+<span class="sd">    stored in &#39;hf_name.h5&#39; using the direct method</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    -data: wakis.in data. Can be obtained using data=read_Wakis_in(cwd)</span>
+<span class="sd">    -path=cwd [default]. Path to the h5 file with the Ez field</span>
+<span class="sd">    -hf_name=&#39;Ez.h5&#39; [default]. Name of the h5 file with the Ez field   </span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    -------- </span>
+<span class="sd">    -WP_3d : Longitudinal wake potential matrix WP_3d(x,y,s) [V/pC]</span>
+<span class="sd">    -s : distance from bunch head to test position [m]</span>
+
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="c1"># Read data</span>
+    <span class="n">hf</span><span class="p">,</span> <span class="n">dataset</span> <span class="o">=</span> <span class="n">read_Ez</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">hf_name</span><span class="p">)</span>
+
+    <span class="n">t</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;t&#39;</span><span class="p">)</span>               <span class="c1">#simulated time [s]</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">)</span>               <span class="c1">#z axis values  [m]</span>
+    <span class="n">t_inj</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;init_time&#39;</span><span class="p">)</span>   <span class="c1">#injection time [s]</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;q&#39;</span><span class="p">)</span>               <span class="c1">#beam charge [C]</span>
+    <span class="n">unit</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;unit&#39;</span><span class="p">)</span>         <span class="c1">#convserion from [m] to [xm]</span>
+    <span class="n">z0</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;z0&#39;</span><span class="p">)</span>             <span class="c1">#full domain length (+pmls) [m]</span>
+
+    <span class="k">if</span> <span class="n">z0</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">z0</span> <span class="o">=</span> <span class="n">z</span>
+
+    <span class="c1"># Aux variables</span>
+    <span class="n">nt</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="n">t</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">nz</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+    <span class="n">zmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+    <span class="n">zmin</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+
+    <span class="n">zi</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">zmin</span><span class="p">,</span> <span class="n">zmax</span><span class="p">,</span> <span class="n">nt</span><span class="p">)</span>  <span class="c1">#interpolated z</span>
+    <span class="n">dzi</span><span class="o">=</span><span class="n">zi</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">-</span><span class="n">zi</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>                 <span class="c1">#interpolated z resolution</span>
+
+    <span class="c1"># Set Wake_length, s</span>
+    <span class="n">Wake_length</span><span class="o">=</span><span class="n">nt</span><span class="o">*</span><span class="n">dt</span><span class="o">*</span><span class="n">c</span> <span class="o">-</span> <span class="p">(</span><span class="n">zmax</span><span class="o">-</span><span class="n">zmin</span><span class="p">)</span> <span class="o">-</span> <span class="n">t_inj</span><span class="o">*</span><span class="n">c</span>
+
+    <span class="n">ns_neg</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">t_inj</span><span class="o">/</span><span class="n">dt</span><span class="p">)</span>            <span class="c1">#obtains the length of the negative part of s</span>
+    <span class="n">ns_pos</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">Wake_length</span><span class="o">/</span><span class="p">(</span><span class="n">dt</span><span class="o">*</span><span class="n">c</span><span class="p">))</span>  <span class="c1">#obtains the length of the positive part of s</span>
+    <span class="n">s</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">t_inj</span><span class="o">*</span><span class="n">c</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">ns_neg</span><span class="p">)</span> <span class="c1">#sets the values for negative s</span>
+    <span class="n">s</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">Wake_length</span><span class="p">,</span>  <span class="n">ns_pos</span><span class="p">))</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[INFO] Max simulated time = &#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="mf">1.0e9</span><span class="p">,</span><span class="mi">4</span><span class="p">))</span><span class="o">+</span><span class="s1">&#39; ns&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[INFO] Wakelength = &#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">Wake_length</span><span class="o">/</span><span class="n">unit</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39; mm&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Initialize variables</span>
+    <span class="n">Ezi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nt</span><span class="p">,</span><span class="n">nt</span><span class="p">))</span>     <span class="c1">#interpolated Ez field</span>
+    <span class="n">ts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nt</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)))</span> <span class="c1">#result of (z+s)/c for each z, s</span>
+
+    <span class="n">WP</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">WP_3d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)))</span>
+
+    <span class="n">i0</span><span class="o">=</span><span class="mi">1</span>    <span class="c1">#center of the array in x</span>
+    <span class="n">j0</span><span class="o">=</span><span class="mi">1</span>    <span class="c1">#center of the array in y</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[PROGRESS] Calculating longitudinal wake potential WP...&#39;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="n">i0</span><span class="p">,</span><span class="n">i0</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">):</span>  
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="n">j0</span><span class="p">,</span><span class="n">j0</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">):</span>
+
+            <span class="c1"># Interpolate Ez field</span>
+            <span class="n">n</span><span class="o">=</span><span class="mi">0</span>
+            <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nt</span><span class="p">):</span>
+                <span class="n">Ez</span><span class="o">=</span><span class="n">hf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">dataset</span><span class="p">[</span><span class="n">n</span><span class="p">])</span>
+                <span class="n">Ezi</span><span class="p">[:,</span> <span class="n">n</span><span class="p">]</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">zi</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">Ez</span><span class="p">[</span><span class="n">Ez</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">//</span><span class="mi">2</span><span class="o">+</span><span class="n">i</span><span class="p">,</span><span class="n">Ez</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">//</span><span class="mi">2</span><span class="o">+</span><span class="n">j</span><span class="p">,:])</span>
+
+            <span class="c1">#-----------------------#</span>
+            <span class="c1">#     Obtain W||(s)     #</span>
+            <span class="c1">#-----------------------#</span>
+
+            <span class="c1"># s loop -------------------------------------#                                                           </span>
+            <span class="n">n</span><span class="o">=</span><span class="mi">0</span>
+            <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)):</span>    
+
+                <span class="c1">#--------------------------------#</span>
+                <span class="c1"># integral between zmin and zmax #</span>
+                <span class="c1">#--------------------------------#</span>
+
+                <span class="c1">#integral of (Ez(xtest, ytest, z, t=(s+z)/c))dz</span>
+                <span class="n">k</span><span class="o">=</span><span class="mi">0</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nt</span><span class="p">):</span> 
+                    <span class="n">ts</span><span class="p">[</span><span class="n">k</span><span class="p">,</span><span class="n">n</span><span class="p">]</span><span class="o">=</span><span class="p">(</span><span class="n">zi</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">+</span><span class="n">s</span><span class="p">[</span><span class="n">n</span><span class="p">])</span><span class="o">/</span><span class="n">c</span><span class="o">-</span><span class="n">zmin</span><span class="o">/</span><span class="n">c</span><span class="o">-</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">t_inj</span>
+
+                    <span class="k">if</span> <span class="n">ts</span><span class="p">[</span><span class="n">k</span><span class="p">,</span><span class="n">n</span><span class="p">]</span><span class="o">&gt;</span><span class="mf">0.0</span><span class="p">:</span>
+                        <span class="n">it</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">ts</span><span class="p">[</span><span class="n">k</span><span class="p">,</span><span class="n">n</span><span class="p">]</span><span class="o">/</span><span class="n">dt</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span>                                              <span class="c1">#find index for t</span>
+                        <span class="n">WP</span><span class="p">[</span><span class="n">n</span><span class="p">]</span><span class="o">=</span><span class="n">WP</span><span class="p">[</span><span class="n">n</span><span class="p">]</span><span class="o">+</span><span class="p">(</span><span class="n">Ezi</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="n">it</span><span class="p">])</span><span class="o">*</span><span class="n">dzi</span>   <span class="c1">#compute integral</span>
+
+            <span class="n">WP</span><span class="o">=</span><span class="n">WP</span><span class="o">/</span><span class="p">(</span><span class="n">q</span><span class="o">*</span><span class="mf">1e12</span><span class="p">)</span>     <span class="c1"># [V/pC]</span>
+
+            <span class="n">WP_3d</span><span class="p">[</span><span class="n">i0</span><span class="o">+</span><span class="n">i</span><span class="p">,</span><span class="n">j0</span><span class="o">+</span><span class="n">j</span><span class="p">,:]</span><span class="o">=</span><span class="n">WP</span> 
+
+    <span class="k">return</span> <span class="n">WP_3d</span><span class="p">,</span> <span class="n">s</span></div>
+
+
+<div class="viewcode-block" id="calc_trans_WP"><a class="viewcode-back" href="../../wakis.html#wakis.solver.calc_trans_WP">[docs]</a><span class="k">def</span> <span class="nf">calc_trans_WP</span><span class="p">(</span><span class="n">WP_3d</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Obtains the transverse Wake Potetential through Panofsky-Wenzel theorem from the</span>
+<span class="sd">    pre-computed longitudinal wake potential in 3d</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    - output of calc_long_WP(data):</span>
+<span class="sd">        -WP_3d : Longitudinal wake potential matrix WP_3d(x,y,s) [V/pC]</span>
+<span class="sd">        -s : distance from bunch head to test position [m]</span>
+<span class="sd">    - data: wakis.in input data</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    -WPx : Horizontal transverse wake potential WPx(s) [V/pC]</span>
+<span class="sd">    -WPy : Vertical transverse wake potential WPy(s) [V/pC]</span>
+
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="c1"># Obtain x, y </span>
+    <span class="n">x</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
+    <span class="n">y</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">)</span>
+    <span class="n">dx</span><span class="o">=</span><span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">dy</span><span class="o">=</span><span class="n">y</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">-</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># Initialize variables</span>
+    <span class="n">i0</span> <span class="o">=</span> <span class="mi">1</span> 
+    <span class="n">j0</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">s</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">-</span><span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">WPx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">WPy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">int_WP</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">WP_3d</span><span class="p">)</span>
+
+    <span class="c1"># Obtain the transverse wake potential </span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[PROGRESS] Calculating transverse wake potential WPx, WPy...&#39;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="n">i0</span><span class="p">,</span><span class="n">i0</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="n">j0</span><span class="p">,</span><span class="n">j0</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">):</span>
+                <span class="c1"># Perform the integral</span>
+                <span class="n">int_WP</span><span class="p">[</span><span class="n">i0</span><span class="o">+</span><span class="n">i</span><span class="p">,</span><span class="n">j0</span><span class="o">+</span><span class="n">j</span><span class="p">,</span><span class="n">n</span><span class="p">]</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">WP_3d</span><span class="p">[</span><span class="n">i0</span><span class="o">+</span><span class="n">i</span><span class="p">,</span><span class="n">j0</span><span class="o">+</span><span class="n">j</span><span class="p">,</span><span class="mi">0</span><span class="p">:</span><span class="n">n</span><span class="p">])</span><span class="o">*</span><span class="n">ds</span> 
+
+        <span class="c1"># Perform the gradient (second order scheme)</span>
+        <span class="n">WPx</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span> <span class="p">(</span><span class="n">int_WP</span><span class="p">[</span><span class="n">i0</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">j0</span><span class="p">,</span><span class="n">n</span><span class="p">]</span><span class="o">-</span><span class="n">int_WP</span><span class="p">[</span><span class="n">i0</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="n">j0</span><span class="p">,</span><span class="n">n</span><span class="p">])</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">dx</span><span class="p">)</span>
+        <span class="n">WPy</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span> <span class="p">(</span><span class="n">int_WP</span><span class="p">[</span><span class="n">i0</span><span class="p">,</span><span class="n">j0</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">n</span><span class="p">]</span><span class="o">-</span><span class="n">int_WP</span><span class="p">[</span><span class="n">i0</span><span class="p">,</span><span class="n">j0</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="n">n</span><span class="p">])</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">dy</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">WPx</span><span class="p">,</span> <span class="n">WPy</span></div>
+
+<div class="viewcode-block" id="calc_long_Z"><a class="viewcode-back" href="../../wakis.html#wakis.solver.calc_long_Z">[docs]</a><span class="k">def</span> <span class="nf">calc_long_Z</span><span class="p">(</span><span class="n">WP</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Obtain impedance Z with single-sided DFT using 1000 samples</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    - output of calc_long_WP(data):</span>
+<span class="sd">        -WP : Longitudinal wake potential matrix WP(s) [V/pC]</span>
+<span class="sd">        -s : distance from bunch head to test position [m]</span>
+<span class="sd">    - data: wakis.in input data</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    - Z: longitudinal impedance Z(w) [Ohm]</span>
+<span class="sd">    - f: DFT frequencies [Hz]</span>
+
+
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[PROGRESS] Obtaining longitudinal impedance Z...&#39;</span><span class="p">)</span>
+
+    <span class="c1">#Check input</span>
+    <span class="k">if</span> <span class="n">WP</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">WP</span> <span class="o">=</span> <span class="n">WP</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,:]</span>
+
+    <span class="c1"># Retrieve variables</span>
+    <span class="n">sigmaz</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;sigmaz&#39;</span><span class="p">)</span>
+    <span class="n">q</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;q&#39;</span><span class="p">)</span>
+    <span class="n">charge_dist</span><span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;charge_dist&#39;</span><span class="p">)</span>
+    <span class="n">z</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Obtain charge distribution as a function of s, normalized</span>
+    <span class="n">lambdas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">charge_dist</span><span class="o">/</span><span class="n">q</span><span class="p">)</span>
+
+    <span class="c1"># Set up the DFT computation</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">s</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">-</span><span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">fmax</span><span class="o">=</span><span class="mi">1</span><span class="o">*</span><span class="n">c</span><span class="o">/</span><span class="n">sigmaz</span><span class="o">/</span><span class="mi">3</span>
+    <span class="n">N</span><span class="o">=</span><span class="nb">int</span><span class="p">((</span><span class="n">c</span><span class="o">/</span><span class="n">ds</span><span class="p">)</span><span class="o">//</span><span class="n">fmax</span><span class="o">*</span><span class="mi">1001</span><span class="p">)</span> <span class="c1">#to obtain a 1000 sample single-sided DFT</span>
+
+    <span class="c1"># Obtain DFTs</span>
+    <span class="n">lambdafft</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">lambdas</span><span class="o">*</span><span class="n">c</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">N</span><span class="p">)</span>
+    <span class="n">WPfft</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">WP</span><span class="o">*</span><span class="mf">1e12</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">N</span><span class="p">)</span>
+    <span class="n">ffft</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">WPfft</span><span class="p">),</span> <span class="n">ds</span><span class="o">/</span><span class="n">c</span><span class="p">)</span>
+
+    <span class="c1"># Mask invalid frequencies</span>
+    <span class="n">mask</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">ffft</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="p">,</span> <span class="n">ffft</span> <span class="o">&lt;</span> <span class="n">fmax</span><span class="p">)</span>
+    <span class="n">WPf</span> <span class="o">=</span> <span class="n">WPfft</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">*</span><span class="n">ds</span>
+    <span class="n">lambdaf</span> <span class="o">=</span> <span class="n">lambdafft</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">*</span><span class="n">ds</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">ffft</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>            <span class="c1"># Positive frequencies</span>
+
+    <span class="c1"># Compute the impedance</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="o">-</span> <span class="n">WPf</span> <span class="o">/</span> <span class="n">lambdaf</span>
+
+    <span class="k">return</span> <span class="n">Z</span><span class="p">,</span> <span class="n">f</span></div>
+
+<div class="viewcode-block" id="calc_trans_Z"><a class="viewcode-back" href="../../wakis.html#wakis.solver.calc_trans_Z">[docs]</a><span class="k">def</span> <span class="nf">calc_trans_Z</span><span class="p">(</span><span class="n">WPx</span><span class="p">,</span> <span class="n">WPy</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[PROGRESS] Obtaining transverse impedance Zx, Zy...&#39;</span><span class="p">)</span>
+    <span class="c1"># Retrieve variables</span>
+    <span class="n">sigmaz</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;sigmaz&#39;</span><span class="p">)</span>
+    <span class="n">q</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;q&#39;</span><span class="p">)</span>
+    <span class="n">charge_dist</span><span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;charge_dist&#39;</span><span class="p">)</span>
+    <span class="n">z</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Obtain charge distribution as a function of s, normalized</span>
+    <span class="n">lambdas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">charge_dist</span><span class="o">/</span><span class="n">q</span><span class="p">)</span>
+
+    <span class="c1"># Set up the DFT computation</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">s</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">-</span><span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">fmax</span><span class="o">=</span><span class="mi">1</span><span class="o">*</span><span class="n">c</span><span class="o">/</span><span class="n">sigmaz</span><span class="o">/</span><span class="mi">3</span>
+    <span class="n">N</span><span class="o">=</span><span class="nb">int</span><span class="p">((</span><span class="n">c</span><span class="o">/</span><span class="n">ds</span><span class="p">)</span><span class="o">//</span><span class="n">fmax</span><span class="o">*</span><span class="mi">1001</span><span class="p">)</span> <span class="c1">#to obtain a 1000 sample single-sided DFT</span>
+
+    <span class="c1"># Obtain DFTs</span>
+
+    <span class="c1"># Normalized charge distribution λ(w) </span>
+    <span class="n">lambdafft</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">lambdas</span><span class="o">*</span><span class="n">c</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">N</span><span class="p">)</span>
+    <span class="n">ffft</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">lambdafft</span><span class="p">),</span> <span class="n">ds</span><span class="o">/</span><span class="n">c</span><span class="p">)</span>
+    <span class="n">mask</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">ffft</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="p">,</span> <span class="n">ffft</span> <span class="o">&lt;</span> <span class="n">fmax</span><span class="p">)</span>
+    <span class="n">lambdaf</span> <span class="o">=</span> <span class="n">lambdafft</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">*</span><span class="n">ds</span>
+
+    <span class="c1"># Horizontal impedance Zx⊥(w)</span>
+    <span class="n">WPxfft</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">WPx</span><span class="o">*</span><span class="mf">1e12</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">N</span><span class="p">)</span>
+    <span class="n">WPxf</span> <span class="o">=</span> <span class="n">WPxfft</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">*</span><span class="n">ds</span>
+
+    <span class="n">Zx</span> <span class="o">=</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">WPxf</span> <span class="o">/</span> <span class="n">lambdaf</span>
+
+    <span class="c1"># Vertical impedance Zy⊥(w)</span>
+    <span class="n">WPyfft</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">WPy</span><span class="o">*</span><span class="mf">1e12</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">N</span><span class="p">)</span>
+    <span class="n">WPyf</span> <span class="o">=</span> <span class="n">WPyfft</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">*</span><span class="n">ds</span>
+
+    <span class="n">Zy</span> <span class="o">=</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">WPyf</span> <span class="o">/</span> <span class="n">lambdaf</span>
+
+    <span class="k">return</span> <span class="n">Zx</span><span class="p">,</span> <span class="n">Zy</span></div>
+
+
+<div class="viewcode-block" id="FFT"><a class="viewcode-back" href="../../wakis.html#wakis.solver.FFT">[docs]</a><span class="k">def</span> <span class="nf">FFT</span><span class="p">(</span><span class="n">Xt</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">fmax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">r</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">flag_zeropadding</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39; </span>
+<span class="sd">    Calculate the FFT of a signal</span>
+<span class="sd">    -Xt: time domain signal with a constant dt</span>
+<span class="sd">    -dt: resolution in time domain [s]</span>
+<span class="sd">    -fmax: fmax to analyse, defined by the sigmat of the bunch: fmax=1/(3*sigmat)</span>
+<span class="sd">    -r: relative length of the zero padding</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="c1"># Define FFT parameters</span>
+    <span class="n">N</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">Xt</span><span class="p">)</span>    <span class="c1"># Number of time domain samples</span>
+    <span class="n">T</span><span class="o">=</span><span class="n">N</span><span class="o">*</span><span class="n">dt</span>       <span class="c1"># Total time [s]</span>
+    <span class="n">fres</span><span class="o">=</span><span class="mi">1</span><span class="o">/</span><span class="n">T</span>     <span class="c1"># Resolution in frequency [Hz]</span>
+    <span class="k">if</span> <span class="n">fmax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">fmax</span><span class="o">=</span><span class="mi">1</span><span class="o">/</span><span class="n">dt</span>
+        <span class="n">dts</span><span class="o">=</span><span class="n">dt</span>    
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">dts</span><span class="o">=</span><span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mf">2.0</span><span class="o">*</span><span class="n">fmax</span><span class="p">)</span>    <span class="c1"># Time window [s]  </span>
+
+    <span class="c1">#Sample the time signal</span>
+    <span class="n">t</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>      <span class="c1"># Original time array</span>
+    <span class="n">ts</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">dts</span><span class="p">)</span>     <span class="c1"># Sampled time array</span>
+    <span class="n">Xs</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span><span class="n">t</span><span class="p">,</span><span class="n">Xt</span><span class="p">)</span>       <span class="c1"># Sampled time domain signal</span>
+    <span class="n">Ns</span><span class="o">=</span><span class="n">N</span><span class="o">/</span><span class="p">(</span><span class="n">dts</span><span class="o">/</span><span class="n">dt</span><span class="p">)</span>               <span class="c1"># Number of FFT samples</span>
+
+    <span class="c1">#Add zero padding</span>
+    <span class="k">if</span> <span class="n">flag_zeropadding</span><span class="p">:</span>
+        <span class="n">pad</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">r</span><span class="o">*</span><span class="n">Ns</span><span class="p">)</span>          <span class="c1"># Adjust by changing the relative length r  </span>
+        <span class="n">Xpad</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">pad</span><span class="p">),</span> <span class="n">Xs</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">pad</span><span class="p">))</span>
+
+        <span class="n">Xs</span><span class="o">=</span><span class="n">Xpad</span> 
+
+    <span class="c1">#Perform FFT</span>
+    <span class="n">Xfft</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span>                     <span class="c1">#FFT of the full spectrum</span>
+    <span class="n">ffft</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Xfft</span><span class="p">),</span> <span class="n">dts</span><span class="p">)</span>     <span class="c1">#frequencies of the full specrtum</span>
+    <span class="n">mask</span><span class="o">=</span> <span class="n">ffft</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+
+    <span class="n">Xf</span><span class="o">=</span><span class="mf">2.0</span><span class="o">*</span><span class="n">Xfft</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">/</span><span class="n">Ns</span>    <span class="c1"># Positive FFT, normalized</span>
+    <span class="n">f</span><span class="o">=</span><span class="n">ffft</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>            <span class="c1"># Positive frequencies</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;------------------------------------------------------&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Performing FFT&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39; - fmax = &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">fmax</span><span class="o">*</span><span class="mf">1e-9</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39; GHz&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39; - fres = &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">fres</span><span class="o">*</span><span class="mf">1e-6</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39; MHz&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39; - N samples = &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">Ns</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="c1">#Parsevals identity</span>
+    <span class="n">Et</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span><span class="o">**</span><span class="mf">2.0</span><span class="p">)</span>
+    <span class="n">Ef</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">Xfft</span><span class="p">)</span><span class="o">**</span><span class="mf">2.0</span><span class="p">)</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="n">ffft</span><span class="p">)</span>
+    <span class="n">K</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">Et</span><span class="o">/</span><span class="n">Ef</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Parseval identity check&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Energy(time)/Energy(frequency) = &#39;</span><span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">K</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39; == 1.0&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Energy(time)-Energy(frequency) = &#39;</span><span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">Et</span><span class="o">-</span><span class="n">Ef</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span><span class="o">+</span><span class="s1">&#39; == 0.0&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;------------------------------------------------------&#39;</span><span class="p">)</span>
+
+    <span class="n">Xf</span><span class="o">=</span><span class="n">K</span><span class="o">*</span><span class="n">Xf</span>
+
+    <span class="k">return</span> <span class="n">Xf</span><span class="p">,</span> <span class="n">f</span></div>
+
+
+<div class="viewcode-block" id="DFT"><a class="viewcode-back" href="../../wakis.html#wakis.solver.DFT">[docs]</a><span class="k">def</span> <span class="nf">DFT</span><span class="p">(</span><span class="n">Xt</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">fmax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">Nf</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39; </span>
+<span class="sd">    Calculate the DFT of a signal</span>
+<span class="sd">    -Xt: time domain signal with a constant dt</span>
+<span class="sd">    -dt: resolution in time domain [s]</span>
+<span class="sd">    -Nf:number of samples in frequency domain</span>
+<span class="sd">    -fmax: fmax to analyse, defined by the sigmat of the bunch: fmax=1/(3*sigmat)</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="c1"># Define FFT parameters</span>
+    <span class="n">N</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">Xt</span><span class="p">)</span>    <span class="c1"># Number of time domain samples</span>
+    <span class="n">T</span><span class="o">=</span><span class="n">N</span><span class="o">*</span><span class="n">dt</span>       <span class="c1"># Total time [s]</span>
+    <span class="n">fres</span><span class="o">=</span><span class="mi">1</span><span class="o">/</span><span class="n">T</span>     <span class="c1"># Resolution in frequency [Hz]</span>
+    <span class="k">if</span> <span class="n">fmax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">fmax</span><span class="o">=</span><span class="mi">1</span><span class="o">/</span><span class="n">dt</span>
+        <span class="n">dts</span><span class="o">=</span><span class="n">dt</span>    
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">dts</span><span class="o">=</span><span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mf">2.0</span><span class="o">*</span><span class="n">fmax</span><span class="p">)</span>    <span class="c1"># Time window [s]   </span>
+
+    <span class="c1">#Sample the time signal</span>
+    <span class="n">t</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>       <span class="c1"># Original time array</span>
+    <span class="n">ts</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">dts</span><span class="p">)</span>     <span class="c1"># Sampled time array</span>
+    <span class="n">Xs</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span><span class="n">t</span><span class="p">,</span><span class="n">Xt</span><span class="p">)</span>       <span class="c1"># Sampled time domain signal</span>
+    <span class="n">Ns</span><span class="o">=</span><span class="n">N</span><span class="o">/</span><span class="p">(</span><span class="n">dts</span><span class="o">/</span><span class="n">dt</span><span class="p">)</span>               <span class="c1"># Number of FFT samples</span>
+
+    <span class="c1">#Perform FFT</span>
+    <span class="n">Xf</span><span class="o">=</span><span class="n">fftpack</span><span class="o">.</span><span class="n">rfft</span><span class="p">(</span><span class="n">Xs</span><span class="p">,</span> <span class="n">Nf</span><span class="p">)</span>              <span class="c1">#FFT of the full spectrum</span>
+    <span class="n">f</span><span class="o">=</span><span class="n">fftpack</span><span class="o">.</span><span class="n">rfftfreq</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Xf</span><span class="p">),</span> <span class="n">dts</span><span class="p">)</span>     <span class="c1">#frequencies of the full specrtum</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;------------------------------------------------------&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Performing DFT&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39; - fmax = &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">fmax</span><span class="o">*</span><span class="mf">1e-9</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39; GHz&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39; - fres = &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">fres</span><span class="o">*</span><span class="mf">1e-6</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39; MHz&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39; - N samples = &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">Ns</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39; GHz&#39;</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+    
+    <span class="c1">#Parsevals identity</span>
+    <span class="n">Et</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span><span class="o">**</span><span class="mf">2.0</span><span class="p">)</span>
+    <span class="n">Ef</span><span class="o">=</span><span class="p">(</span><span class="n">Xf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">Xf</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="n">K</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">Et</span><span class="o">/</span><span class="n">Ef</span><span class="p">)</span>
+    
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Parseval identity check&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Energy(time)/Energy(frequency) = &#39;</span><span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">K</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39; == 1.0&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Energy(time)-Energy(frequency) = &#39;</span><span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">Et</span><span class="o">-</span><span class="n">Ef</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span><span class="o">+</span><span class="s1">&#39; == 0.0&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;------------------------------------------------------&#39;</span><span class="p">)</span>
+
+    <span class="n">mask</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">Nf</span><span class="p">)</span><span class="o">%</span><span class="mf">2.0</span> <span class="o">==</span> <span class="mf">0.0</span>  <span class="c1">#Take the imaginary values of Xf</span>
+    <span class="n">Z</span><span class="o">=</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Xf</span><span class="p">[</span><span class="n">mask</span><span class="p">]))</span>
+    <span class="n">Zf</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Xf</span><span class="p">[</span><span class="n">mask</span><span class="p">]))</span>
+
+    <span class="k">if</span> <span class="n">Nf</span><span class="o">%</span><span class="mf">2.0</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="n">Re</span> <span class="o">=</span> <span class="o">~</span><span class="n">mask</span>
+        <span class="n">Re</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">=</span><span class="kc">False</span>
+        <span class="n">Im</span> <span class="o">=</span> <span class="n">mask</span>
+        <span class="n">Im</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">=</span><span class="kc">False</span>
+
+        <span class="n">Z</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">=</span><span class="n">Xf</span><span class="p">[</span><span class="n">Re</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">Xf</span><span class="p">[</span><span class="n">Im</span><span class="p">]</span>   <span class="c1">#Reconstruct de complex array</span>
+        <span class="n">Z</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">=</span><span class="n">Xf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>               <span class="c1">#Take the DC value</span>
+
+        <span class="n">Zf</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">=</span><span class="n">f</span><span class="p">[</span><span class="n">Im</span><span class="p">]</span>
+        <span class="n">Zf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">=</span><span class="mf">0.0</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">Re</span> <span class="o">=</span> <span class="o">~</span><span class="n">mask</span>
+        <span class="n">Im</span> <span class="o">=</span> <span class="n">mask</span>
+        <span class="n">Im</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">=</span><span class="kc">False</span>
+
+        <span class="n">Z</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">=</span><span class="n">Xf</span><span class="p">[</span><span class="n">Re</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">Xf</span><span class="p">[</span><span class="n">Im</span><span class="p">]</span>   <span class="c1">#Reconstruct de complex array</span>
+        <span class="n">Z</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">=</span><span class="n">Xf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>               <span class="c1">#Take the DC value</span>
+
+        <span class="n">Zf</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">=</span><span class="n">f</span><span class="p">[</span><span class="n">Im</span><span class="p">]</span>
+        <span class="n">Zf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">=</span><span class="mf">0.0</span>
+
+    <span class="n">Xf</span><span class="o">=</span><span class="n">K</span><span class="o">*</span><span class="n">Z</span><span class="o">/</span><span class="p">(</span><span class="n">Ns</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">f</span><span class="o">=</span><span class="n">Zf</span>
+
+    <span class="k">return</span> <span class="n">Xf</span><span class="p">,</span> <span class="n">f</span></div>
+
+<div class="viewcode-block" id="test_FT"><a class="viewcode-back" href="../../wakis.html#wakis.solver.test_FT">[docs]</a><span class="k">def</span> <span class="nf">test_FT</span><span class="p">():</span>
+    <span class="c1">#Proof of FFT / DFT algorithm performance with sines</span>
+
+    <span class="n">N</span><span class="o">=</span><span class="mi">500</span>
+    <span class="n">T</span><span class="o">=</span><span class="mi">100</span>
+    <span class="n">w</span><span class="o">=</span><span class="mf">2.0</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="n">T</span>
+    <span class="n">t</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">T</span><span class="p">,</span><span class="n">N</span><span class="p">)</span>
+    <span class="n">dt</span><span class="o">=</span><span class="n">T</span><span class="o">/</span><span class="n">N</span>
+
+    <span class="n">Xt1</span><span class="o">=</span><span class="mf">1.0</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mf">5.0</span><span class="o">*</span><span class="n">w</span><span class="o">*</span><span class="n">t</span><span class="p">)</span>
+    <span class="n">Xt2</span><span class="o">=</span><span class="mf">2.0</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mf">10.0</span><span class="o">*</span><span class="n">w</span><span class="o">*</span><span class="n">t</span><span class="p">)</span>
+    <span class="n">Xt3</span><span class="o">=</span><span class="mf">0.5</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mf">20.0</span><span class="o">*</span><span class="n">w</span><span class="o">*</span><span class="n">t</span><span class="p">)</span>
+
+    <span class="n">Xt</span><span class="o">=</span><span class="n">Xt1</span><span class="o">+</span><span class="n">Xt2</span><span class="o">+</span><span class="n">Xt3</span>
+
+    <span class="c1"># Plot time domain</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span><span class="mi">4</span><span class="p">),</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">tight_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">=</span><span class="n">fig</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">Xt</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s1">&#39;o&#39;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Xt1+Xt2+Xt3&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">Xt1</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s1">&#39;o&#39;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Xt1&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">Xt2</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s1">&#39;o&#39;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Xt2&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">Xt3</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s1">&#39;o&#39;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;green&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Xt3&#39;</span><span class="p">)</span>
+
+    <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">&#39;best&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="n">Xf</span><span class="p">,</span> <span class="n">f</span> <span class="o">=</span> <span class="n">FFT</span><span class="p">(</span><span class="n">Xt</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">fmax</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">flag_zeropadding</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">r</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
+    <span class="n">Xdft</span><span class="p">,</span> <span class="n">fdft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="n">Xt</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">fmax</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">Nf</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+
+    <span class="c1"># Plot frequency domain</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span><span class="mi">4</span><span class="p">),</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">tight_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">=</span><span class="n">fig</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">Xf</span><span class="p">),</span> <span class="n">marker</span><span class="o">=</span><span class="s1">&#39;o&#39;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;FFT&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">fdft</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">Xdft</span><span class="p">),</span> <span class="n">marker</span><span class="o">=</span><span class="s1">&#39;o&#39;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;DFT&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">&#39;best&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    
+    <span class="n">test_FT</span><span class="p">()</span>
+    
+
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2022, Read the Docs
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
