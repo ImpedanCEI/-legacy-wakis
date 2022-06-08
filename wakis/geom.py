@@ -14,7 +14,7 @@ Functions:
 
 Requirements:
 ------------- 
-pip install scikit-image, matplotlib, numpy
+scikit-image, matplotlib, numpy
 
 '''
 import sys

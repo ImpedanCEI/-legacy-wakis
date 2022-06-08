@@ -128,7 +128,7 @@ else:
 #======================#
 
 # execute the file
-#wakis.execfile('../warpx.py')
+wakis.execfile('../warpx.py')
 
 
 #==================#
