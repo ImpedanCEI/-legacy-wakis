@@ -13,7 +13,7 @@ Requirements:
 pip install pywarpx, wakis, numpy, h5py
 
 '''
-import os
+import os, sys
 import time
 import pickle as pk  
 
@@ -22,20 +22,25 @@ from pywarpx import picmi
 from pywarpx import libwarpx, fields, callbacks
 import pywarpx.fields as pwxf
 import numpy.random as random
+import wakis
 
-'''
-# create output directory 
-path=os.getcwd() + '/out_'+os.path.basename(__file__)+'/'
+#==================#
+# Run input script #
+#==================#
 
-if not os.path.exists(path):
-    os.mkdir(path)
-'''
-path=os.getcwd() + '/'
+try:
+    example=sys.argv[1]
+except:
+    print('[! WARNING] No example specified. To run warpx.py do $`ipython` then In[1]:`run warpx.py example`')
 
+path=os.getcwd()+'/'+example+'/'
 
-##################################
-# Define the mesh
-##################################
+# execute the file
+wakis.execfile(path+example+'.py')
+
+#==================#
+# Simulation setup #
+#==================#
 
 # Define mesh cells per direction. !![has to be divisible by 2**3]
 
@@ -80,19 +85,15 @@ n_pml=(nz-L/dz)//2
 z_inj=zmin+5*dz
 #z_inj=zmin+n_pml/2*dz
 
-##################################
-# Beam Setup
-##################################
+
 # generate the beam
 bunch = picmi.Species(particle_type='proton',
                      name = 'beam')
-
-##########################
-# numerics components
-##########################
+# boundary conditions
 lower_boundary_conditions = ['dirichlet', 'dirichlet', 'open']
 upper_boundary_conditions = ['dirichlet', 'dirichlet', 'open']
 
+# define grid
 grid = picmi.Cartesian3DGrid(
     number_of_cells = [nx, ny, nz],
     lower_bound = [xmin, ymin, zmin],
@@ -119,13 +120,7 @@ solver = picmi.ElectromagneticSolver(grid=grid, method='Yee', cfl=CFL,
                                      warpx_adjusted_pml = True, 
                                      )
 
-
-##########################
-# simulation setup
-##########################
-
 # Obtain number of timesteps needed for the wake length
-
 # time when the bunch enters the cavity
 init_time = 5.332370636221942e-10 + (zmin+L/2)/c -z_inj/c #[s] injection time + PEC length - Injection length 
 
@@ -152,9 +147,9 @@ sim.add_species(bunch, layout=beam_layout)
 
 sim.initialize_inputs()
 
-##################################
-# Setup the beam injection
-##################################
+#==========================#
+# Setup the beam injection #
+#==========================#
 
 # beam sigma in time and longitudinal direction
 # defined by the user
@@ -229,9 +224,9 @@ callbacks.installparticleinjection(nonlinearsource)
 
 print('[WARPX][INFO] Finished simulation setup')
 
-##########################
-# Simulation run
-##########################
+#================#
+# Run simulation #
+#================#
 t0 = time.time()
 
 if flag_logfile:
@@ -270,7 +265,8 @@ prefix=np.append('0'*5, prefix)
 t=[]
 rho_t=[]
 
-# Perform the simulation --------------------------------------
+# Start simulation --------------------------------------
+
 print('[WARPX][PROGRESS] Starting simulation with a total of '+str(max_steps)+' timesteps...' )
 for n_step in range(max_steps):
 
@@ -312,9 +308,9 @@ if flag_logfile:
     # Close logfile
     sys.stdout.close()
 
-##########################
-#    Generate output     # 
-##########################
+#=================#
+# Generate output # 
+#=================#
 
 # Create dictionary with input data. SI UNITs: [m], [s], [C]
 data = { 'init_time' : -t_offs, 
@@ -344,3 +340,10 @@ with open(path+'warpx.out', 'wb') as fp:
     pk.dump(data, fp)
 
 print('[! OUT] warpx.out file succesfully generated') 
+
+#==================#
+# Run Wakis solver #
+#==================#
+
+# Run wakis
+wakis.run_WAKIS()

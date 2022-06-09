@@ -23,7 +23,7 @@ import numpy as np
 from scipy.constants import c, e
 
 from pywarpx import picmi
-import wakis
+#import wakis
 
 #========================#
 # User defined variables #
@@ -122,7 +122,7 @@ else:
     if flag_plot_geom:
         wakis.triang_implicit(fun=wakis.eval_implicit, BC=embedded_boundary, bbox=(-L/2,L/2))
 
-
+'''
 #======================#
 # Run WarpX simulation #
 #======================#
@@ -137,3 +137,4 @@ wakis.execfile('../warpx.py')
 
 # Run wakis
 wakis.run_WAKIS()
+'''
