@@ -33,13 +33,13 @@ import wakis
 CFL = 1.0               #Courant-Friedrichs-Levy criterion for stability
 NUM_PROC = 1            #number of mpi processors wanted to use
 UNIT = 1e-3             #conversion factor from input to [m]
-Wake_length=10*UNIT    #Wake potential length in s [m]
+Wake_length=500*UNIT    #Wake potential length in s [m]
 
 # flags
 flag_logfile = False        #generates a .log file with the simulation info
 flag_mask_pml = False       #removes the pml cells from the E field data
 flag_stl_geom = False       #takes geom info from .stl file
-flag_plot_geom = True       #only for implicit function option
+flag_plot_geom = False       #only for implicit function option
 
 # beam parameters
 q=1e-9                      #Total beam charge [C]
@@ -118,23 +118,8 @@ else:
     )
 
     # Define mesh resolution in x, y, z
-    dh = 1.0*UNIT
+    dh = 2.0*UNIT
 
     if flag_plot_geom:
         wakis.triang_implicit(fun=wakis.eval_implicit, BC=embedded_boundary, bbox=(-L/2,L/2))
 
-
-#======================#
-# Run WarpX simulation #
-#======================#
-
-# execute the file
-wakis.execfile('../warpx.py')
-
-
-#==================#
-# Run Wakis solver #
-#==================#
-
-# Run wakis
-wakis.run_WAKIS()

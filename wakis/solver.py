@@ -78,9 +78,9 @@ def run_WAKIS(path=None, hf_name='Ez.h5', warpx_path=None, cst_path=None, flag_p
     if flag_preproc:
         if not os.path.exists(path+'wakis.in'):
             if flag_warpx:
-                preproc_WarpX(warpx_path)
+                preproc_WarpX(warpx_path, path)
             elif flag_cst:
-                preproc_CST(cst_path)
+                preproc_CST(cst_path, path)
             else: print('[! WARNING] No EM solver was specified for preprocessing')
 
     # Read data from 'wakis.in'

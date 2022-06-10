@@ -314,7 +314,7 @@ if flag_logfile:
 
 # Create dictionary with input data. SI UNITs: [m], [s], [C]
 data = { 'init_time' : -t_offs, 
-         't' : t,
+         #'t' : t,
          'x' : x[ixtest-1:ixtest+2],   
          'y' : y[iytest-1:iytest+2],
          'z' : z[zmask],
@@ -346,4 +346,4 @@ print('[! OUT] warpx.out file succesfully generated')
 #==================#
 
 # Run wakis
-wakis.run_WAKIS()
+wakis.run_WAKIS(path)

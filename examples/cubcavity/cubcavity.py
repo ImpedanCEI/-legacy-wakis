@@ -33,7 +33,7 @@ from pywarpx import picmi
 CFL = 1.0               #Courant-Friedrichs-Levy criterion for stability
 NUM_PROC = 1            #number of mpi processors wanted to use
 UNIT = 1e-3             #conversion factor from input to [m]
-Wake_length=10*UNIT    #Wake potential length in s [m]
+Wake_length=1000*UNIT    #Wake potential length in s [m]
 
 # flags
 flag_logfile = False        #generates a .log file with the simulation info

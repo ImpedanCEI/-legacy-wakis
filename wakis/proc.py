@@ -132,6 +132,10 @@ def preproc_WarpX(warpx_path, path=cwd):
     if data.get('charge_dist') is None:
         data['charge_dist'] = preproc_rho(warpx_path)
 
+    # Remove previous .in files
+    if os.path.exists(path+'wakis.in'):
+        os.remove(path+'wakis.in')
+
     # Save dictionary with pickle
     with open(path+'wakis.in', 'wb') as fp:
         pk.dump(data, fp)
@@ -188,6 +192,10 @@ def preproc_CST(cst_path, hf_name='Ez.h5', path=cwd, **kwargs):
 
     # Check input data
     data=check_input(data)
+
+    # Remove previous .in files
+    if os.path.exists(path+'wakis.in'):
+        os.remove(path+'wakis.in')
 
     # Generate wakis.in file
     with open(path+'wakis.in', 'wb') as fp:
@@ -494,7 +502,7 @@ def read_WAKIS_out(path=cwd):
 
     return data 
 
-def animate_Ez(path, filename='Ez.h5', flag_charge_dist=True, flag_compare_cst=False, flag_transverse_field=False):
+def animate_Ez(path, filename='Ez.h5', flag_charge_dist=True, flag_transverse_field=False):
     '''
     Creates an animated plot showing the Ez field along the z axis for every timestep
 
@@ -506,8 +514,8 @@ def animate_Ez(path, filename='Ez.h5', flag_charge_dist=True, flag_compare_cst=F
     '''
 
     # Read data
-    hf, dataset = read_Ez(out_path, filename)
-    data =  read_WarpX(out_path)
+    hf, dataset = read_Ez(path, filename)
+    data =  read_WAKIS_in(path)
 
     t = data.get('t')               #simulated time [s]
     z = data.get('z')               #z axis values  [m]
@@ -540,21 +548,12 @@ def animate_Ez(path, filename='Ez.h5', flag_charge_dist=True, flag_compare_cst=F
             #--- Plot Ez along z axis 
             fig = plt.figure(1, figsize=(6,4), dpi=200, tight_layout=True)
             ax=fig.gca()
-            ax.plot(np.array(z0)/UNIT, charge_dist[:,n]/np.max(charge_dist)*np.max(Ez0)*0.4, lw=1.3, color='r', label='$\lambda $') 
+            ax.plot(np.array(z0)/UNIT, charge_dist[n]/np.max(charge_dist)*np.max(Ez0)*0.4, lw=1.3, color='r', label='$\lambda $') 
             ax.plot(z/UNIT, Ez0[:, n], color='g', label='Ez(0,0,z) WarpX')
 
             if flag_transverse_field:
                 ax.plot(z/UNIT, Ez1[:, n], color='seagreen', label='Ez(0+dx, 0+dy, z) WarpX')
                 ax.plot(z/UNIT, Ez2[:, n], color='limegreen', label='Ez(0+2dx, 0+2dy, z) WarpX')
-
-            if flag_compare_cst:
-                try:
-                    cst_data=read_CST(CST_PATH)
-                    z_cst=cst_data.get('z_cst')
-                    Ez_cst=cst_data.get('Ez_cst')
-                    ax.plot(z_cst/UNIT, Ez_cst[:, n], lw=1.0, color='black', ls='--',label='Ez(0,0,z) CST')
-                except: 
-                    print('Warning: macro CST_PATH is not well defined')
 
             ax.set(title='Electric field at time = '+str(round(t[n]*1e9,2))+' ns | timestep '+str(n),
                     xlabel='z [mm]',
