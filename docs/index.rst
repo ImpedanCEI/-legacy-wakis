@@ -13,6 +13,9 @@ Wakis has been coupled with `WarpX <https://warpx.readthedocs.io/en/latest/>`_, 
 
 The source code is available in the `WAKIS GitHub repository <https://github.com/ImpedanCEI/WAKIS>`_.
 
+.. attention::
+   This documentation is currently under development
+
 Table of contents
 -----------------
 
@@ -23,7 +26,7 @@ Table of contents
    installation
    usersguide
    physicsguide
-   modules
+   wakis
 
 Indices and tables
 ------------------
@@ -31,3 +34,4 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+

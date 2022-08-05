@@ -1,6 +1,9 @@
 wakis package
 =============
 
+.. attention::
+   This documentation is currently under development
+
 Submodules
 ----------
 
