@@ -548,7 +548,7 @@ def animate_Ez(path, filename='Ez.h5', flag_charge_dist=True, flag_transverse_fi
             #--- Plot Ez along z axis 
             fig = plt.figure(1, figsize=(6,4), dpi=200, tight_layout=True)
             ax=fig.gca()
-            ax.plot(np.array(z0)/UNIT, charge_dist[n]/np.max(charge_dist)*np.max(Ez0)*0.4, lw=1.3, color='r', label='$\lambda $') 
+            ax.plot(np.array(z0)/UNIT, charge_dist[:,n]/np.max(charge_dist)*np.max(Ez0)*0.4, lw=1.3, color='r', label='$\lambda $') 
             ax.plot(z/UNIT, Ez0[:, n], color='g', label='Ez(0,0,z) WarpX')
 
             if flag_transverse_field:
