@@ -1,9 +1,9 @@
-:file_folder: **tests/**
+:file_folder: tests/
 ===
 
 Contains the scripts that validate critical parts of the Wakis source code
 
-* fft/ 
+:file_folder: fft/ 
 ---
 
 Contains the test for the FFT function used in wakis to go from Wake potential to Impedance. It uses data from CST simulation of a simple cubic pillbox cavity. It reads the data of `Wp.txt` and `lambda.txt` and obtains the impedance by: 
