@@ -1,4 +1,4 @@
-WAKIS
+wakis
 ===
 
 [![PyPI version](https://badge.fury.io/py/wakis.svg)](https://badge.fury.io/py/wakis)
