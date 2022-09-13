@@ -6,7 +6,8 @@ wakis
 
 WAKIS stands for (WA)ke and (I)mpedance (S)olver. It is a postprocessing tool that can obtain the longitudinal and transverse Wake Potential and Impedance from pre-computed electromagnetic fields. These magnitudes are important to quantify the losses of accelerator structures with a passing beam. 
 
+- Procedural version available in :file_folder: source/
+- OOP version and pyPI package in development
+- Check :file_folder: examples/ for how to use!
+
 More information about theory, installation and usage can be found on: https://wakis.readthedocs.io/en/latest/
-
-Procedural version available in :file_folder: source/
-
