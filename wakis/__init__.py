@@ -1,9 +1,8 @@
-from . import geom, proc, solver, bmk
+from . import inputs
+from . import logger
+from . import plotting
+from . import solver
+from . import main
 
-from .geom import *
-
-from .proc import *
-
-from .solver import *
-
-from .bmk import *
+from .main import Wakis
+from .inputs import Inputs
