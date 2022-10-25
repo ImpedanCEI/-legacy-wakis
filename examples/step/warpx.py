@@ -1,8 +1,5 @@
 '''
-cubcavity.py
-===
-
-Script to perform simulations of a cubic pillbox cavity in WarpX 
+Script to perform simulations of a step-like transition in WarpX 
 
 How to use:
 ---
@@ -52,7 +49,7 @@ t0 = time.time()
 # USER DEFINED VARIABLES
 
 # path to geometry file
-path='$HOME/wakis/examples/cubcavity/'
+path='$HOME/wakis/examples/step/'
 
 #=======================#
 # Simulation parameters #
@@ -87,7 +84,7 @@ ytest = 0.0*UNIT
 #=====================#
 
 # Define stl file name
-stl_file = 'cubcavity.stl'
+stl_file = 'step.stl'
 
 # Initialize WarpX EB object
 embedded_boundary = picmi.EmbeddedBoundary(stl_file = path + stl_file)

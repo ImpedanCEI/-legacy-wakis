@@ -8,6 +8,7 @@ WAKIS stands for (WA)ke and (I)mpedance (S)olver. It is a postprocessing tool th
 
 - Procedural version available in :file_folder: source/
 - OOP version available now in pyPI [wakis 0.2.0](https://pypi.org/project/wakis/)
-- Check :file_folder: examples/ for how to use!
+- Check :file_folder: examples/ on how to use!
 
 More information about theory, installation and usage can be found on: https://wakis.readthedocs.io/en/latest/
+Github link: https://github.com/ImpedanCEI/wakis
