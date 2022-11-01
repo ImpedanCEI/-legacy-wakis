@@ -80,7 +80,7 @@ class Wakis(Inputs, Solver, Plot):
         '- solver: \n s={s}, lambdas={self.lambdas}, WP={self.WP}, Z={self.Z}, WPx={self.WPx}, WPy={self.WPy}, Zx={self.Zx}, Zy={self.Zy} \n'
 
     @classmethod
-    def from_inputs(cls, *clss):
+    def from_inputs(cls, *clss): #[TODO] should be changed to **clss?
         '''
         Factory method from input's module
         classes: User, Beam and Field

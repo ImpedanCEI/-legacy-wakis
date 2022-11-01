@@ -1,9 +1,15 @@
 '''
-wakis.py
+step.py
 ===
-
 Example script to obtain wake potential and impedance
+from 3d electromagnetic simulation output from warpx
 using wakis module
+
+How to use
+---
+1. `python warpx.py` to run EM simulation of the geometry defined 
+   in `.stl` file
+2. `ipython $example.py` to obtain the wake and impedance results
 
 '''
 import wakis
@@ -23,42 +29,39 @@ unit_m = 1e-3  #default: mm
 unit_t = 1e-9  #default: ns
 unit_f = 1e9   #default: GHz
 
-# Beam parameters
-# input_file = 'filename.ext'     #filename containing the beam information (optional)
-q = 1e-9                          #beam charge in [C]
-sigmaz = 15                		  #beam longitudinal sigma [m]
-xsource, ysource = 0e-3, 0e-3     #beam center offset [m]
-xtest, ytest = 0e-3, 0e-3         #integration path offset [m]
+# Beam parameters 
+input_file = 'warpx.json'         #filename containing the beam information (optional)
+#q = 1e-9                          #beam charge in [C]
+#sigmaz = 15                		  #beam longitudinal sigma [m]
+#xsource, ysource = 0e-3, 0e-3     #beam center offset [m]
+#xtest, ytest = 0e-3, 0e-3         #integration path offset [m]
 
 # Field data
-flag_preproc = True      #enable data pre-processing
-# Ez_fname = 'Ez.h5'	 #name of filename (optional)
-Ez_folder = '3d/'		 #relative path to folder containing multiple Ez files (optional)
+Ez_fname = 'Ez.h5'	 #name of filename (optional)
+#Ez_folder = '3d/'   #relative path to folder containing multiple Ez files [CST](optional)
 
 # Output options
 flag_save = True 
 flag_plot = True
-out_fname = 'wakis.json'  #define name and format of output data
 
 #---------------------------#
 
 # Initialize inputs
-user = wakis.User(case = case, unit_m = unit_m, unit_t = unit_t, unit_f = unit_f)
-beam = wakis.Beam(q = q, sigmaz = sigmaz, 
-				  xource = xsource, ysource = ysource, 
-				  xtest = xtest, ytest = ytest)
-field = wakis.Field(preproc = flag_preproc, Ez_folder = Ez_folder)
+user = wakis.Inputs.User(case = case, unit_m = unit_m, unit_t = unit_t, unit_f = unit_f)
+beam = wakis.Inputs.Beam.from_WarpX() #TODO
+field = wakis.Inputs.Field.from_WarpX() #TODO
 
 # Get data object
-data = wakis.Input().get_input(User = user, Beam = beam, Field = field) 
+Wakis = wakis.from_inputs(user, beam, field) 
 
 # Run solver
-data = wakis,solve(data)
+Wakis.solve()
 
 # Plot
 if flag_plot:
-	fig, ax = wakis.plot(data)
+	figs, axs = Wakis.plot()
+	fig, axs = Wakis.subplot()
 
 # Save
 if flag_save:
-	wakis.save(data, fname = out_fname)
+	Wakis.save(data, ext = 'json')
