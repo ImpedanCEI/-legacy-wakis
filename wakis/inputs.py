@@ -21,6 +21,7 @@ import numpy as np
 import h5py 
 
 from wakis.logger import get_logger
+from wakis.reader import Reader
 
 #globals
 _cwd = os.getcwd() + '/'
@@ -28,7 +29,7 @@ _verbose = 2    #1: Debug, 2: Info, 3: Warning, 4: Error, 5: Critical
 _log = get_logger(level=_verbose)
 
 
-class Inputs():
+class Inputs(Reader):
     '''Mixin class to encapsulate all child input classes
     '''
 
@@ -128,14 +129,14 @@ class Inputs():
                      xtest = d['xtest'], ytest = d['ytest'],
                      chargedist = d['chargedist'], rho = d['rho'])
 
-            elif ext == 'pk' or ext == 'pickle':
+            elif ext == 'pk' or ext == 'pickle' or ext == 'inp':
                 with open(filename, 'rb') as f:
                     d = pk.load(f)
 
                 return cls(q = d['q'], sigmaz = d['sigmaz'], 
                      xsource = d['xsource'], ysource = d['ysource'], 
                      xtest = d['xtest'], ytest = d['ytest'], 
-                     chargedist = d['chargedist'], rho = d['rho'])
+                     chargedist = d['charge_dist'], rho = d['rho'])
 
             else:
                 _log.warning('warpx file extension not supported')
@@ -148,7 +149,7 @@ class Inputs():
 
             if type(chargedist) is str:
                 try:
-                    chargedist = read_cst_1d(chargedist, path = path)
+                    chargedist = Reader.read_cst_1d(chargedist, path = path)
                 except:
                     _log.warning(f'Charge distribution file "{chargedist}" not found')
 
@@ -159,7 +160,7 @@ class Inputs():
 
 
         @staticmethod
-        def read_cst_1d(file, path=_cwd):
+        def _read_cst_1d(file, path=_cwd):
             '''
             Read CST plot data saved in ASCII .txt format
 
@@ -230,10 +231,10 @@ class Inputs():
             path_3d = _cwd + folder + '/'
 
             #read CST field monitor output and turn it into .h5 file
-            read_cst_3d(path, path_3d, filename)
+            Reader.read_cst_3d(path, path_3d, filename)
 
             #get field content from h5 file
-            hf, dataset = read_Ez(path, filename)
+            hf, dataset = Reader.read_Ez(path, filename)
 
             #return class
             return cls(Ez = {'hf' : hf, 'dataset' : dataset}, t=t, x=x, y=y, z=z)
@@ -241,7 +242,7 @@ class Inputs():
         @classmethod
         def from_WarpX(cls, path = _cwd, warpx_filename = 'warpx.json', Ez_filename = 'Ez.h5'):
             
-            hf, dataset = read_Ez(path, Ez_filename)
+            hf, dataset = Reader.read_Ez(path, Ez_filename)
             ext = warpx_filename.split('.')[-1]
 
             if ext == 'json':
@@ -265,7 +266,7 @@ class Inputs():
 
 
         @staticmethod
-        def read_Ez(path = _cwd, filename = 'Ez.h5'):
+        def _read_Ez(path = _cwd, filename = 'Ez.h5'):
             '''
             Read the Ez.h5 file containing the Ez field information
             '''
@@ -286,7 +287,7 @@ class Inputs():
             return hf, dataset
 
         @staticmethod
-        def read_cst_3d(path = _cwd, path_3d = '3d', filename = 'Ez.h5'):
+        def _read_cst_3d(path = _cwd, path_3d = '3d', filename = 'Ez.h5'):
                     # Rename files with E-02, E-03
             for file in glob.glob(path_3d +'*E-02.txt'): 
                 file=file.split(path_3d)

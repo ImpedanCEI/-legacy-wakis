@@ -1,8 +1,5 @@
 '''
-taper.py
-===
-
-Script to perform simulations of a taper in WarpX 
+Script to perform simulations of a step-like transition in WarpX 
 
 How to use:
 ---
@@ -33,18 +30,17 @@ Requirements
 
 from pywarpx import picmi
 from pywarpx import libwarpx, fields, callbacks
-import pywarpx.fields as pwxf
 import numpy as np
 import numpy.random as random
-import scipy as sc
 from scipy.constants import c, m_p, e
 import pickle as pk
 import time
 import os
-import h5py
 import sys
+import h5py
 
 from stl import mesh
+
 
 t0 = time.time()
 
@@ -52,7 +48,8 @@ t0 = time.time()
 # USER DEFINED VARIABLES
 
 # path to geometry file
-path='$HOME/wakis/examples/taper/'
+path=os.getcwd()+'/' #working directory
+#path='$HOME/wakis/examples/XXX/'
 
 #=======================#
 # Simulation parameters #
@@ -61,13 +58,13 @@ path='$HOME/wakis/examples/taper/'
 CFL = 1.0               #Courant-Friedrichs-Levy criterion for stability
 NUM_PROC = 1            #number of mpi processors wanted to use
 UNIT = 1e-3             #conversion factor from input to [m]
-Wake_length=1000*UNIT   #Wake potential length in s [m]
+Wake_length = 10*UNIT   #Wake potential length in s [m]
 
 # flags
 flag_logfile = False        #generates a .log file with the simulation info
 
 # beam parameters
-q=1e-9                      #Total beam charge [C]
+q = 1e-9                      #Total beam charge [C]
 sigmaz = 15*UNIT            #[m]
 
 # beam source center 
@@ -87,29 +84,33 @@ ytest = 0.0*UNIT
 #=====================#
 
 # Define stl file name
-stl_file = 'taper.stl'
+stl_file = 'longsymtaperCST.stl'
 
 # Initialize WarpX EB object
 embedded_boundary = picmi.EmbeddedBoundary(stl_file = path + stl_file)
 
-# STL domain limits
-stl_unit = 1e-2
+# STL geometry unit conversion to [m]
+stl_unit = 1e-3
+
+# read stl mesh
 obj = mesh.Mesh.from_file(path+stl_file)
-W = (obj.x.max() - obj.x.min())*stl_unit
-H = (obj.y.max() - obj.y.min())*stl_unit
-L = (obj.z.max() - obj.z.min())*stl_unit
 
 # Define mesh resolution in x, y, z
-dh = 2.0*UNIT
+dh = 0.5*UNIT
 
-#number of pml cells needed (included in domain limits)
-n_pml=10  #default: 10
+# number of pml cells needed (included in domain limits)
+n_pml = 10  #default: 10
+flag_mask_pml = False  #removes the pml cells from the E field monitor
 
-# define field monitor 
+# get simulation domain limits 
+xmin, xmax = obj.x.min()*stl_unit, obj.x.max()*stl_unit
+ymin, ymax = obj.y.min()*stl_unit, obj.y.max()*stl_unit
+zmin, zmax = obj.z.min()*stl_unit, obj.z.max()*stl_unit 
+
+# define field monitor
 xlo, xhi = xtest-2*dh, xtest+2*dh
 ylo, yhi = ytest-2*dh, ytest+2*dh
-zlo, zhi = -L/2, -L/2
-flag_mask_pml = False  #removes the pml cells from the E field monitor
+zlo, zhi = zmin, zmax
 
 #--------------------------------------------------------------------------------
 
@@ -117,19 +118,16 @@ flag_mask_pml = False  #removes the pml cells from the E field monitor
 # Simulation setup #
 #==================#
 
+# get domain dimensions
+W = (xmax - xmin)
+H = (ymax - ymin)
+L = (zmax - zmin)
+
 # Define mesh cells per direction 
 block_factor = 1 #mcm of nx, ny, nz
 nx = int(W/dh)
 ny = int(H/dh)
 nz = int(L/dh)
-
-# mesh bounds for domain. Last 10 cells are PML
-xmin = -nx*dh/2
-xmax = nx*dh/2
-ymin = -ny*dh/2
-ymax = ny*dh/2
-zmin = -nz*dh/2 
-zmax = nz*dh/2
 
 # mesh cell widths
 dx=(xmax-xmin)/nx
@@ -137,8 +135,8 @@ dy=(ymax-ymin)/ny
 dz=(zmax-zmin)/nz
 
 # mesh arrays (center of the cell)
-x=np.linspace(xmin, xmax, nx)
-y=np.linspace(ymin, ymax, ny)
+x=np.linspace(xmin, xmax, nx+1)
+y=np.linspace(ymin, ymax, ny+1)
 z=np.linspace(zmin, zmax, nz)
 
 # max grid size for mpi
@@ -150,11 +148,11 @@ print('[WARPX][INFO] Initialized mesh with ' + str((nx,ny,nz)) + ' number of cel
 
 # mask for the E field extraction
 if flag_mask_pml:
-    zmask = np.logical_and(z >= -L/2.0 + n_pml*dz, z <= L/2 - n_pml*dz)
+    zmask = np.where((z >= zmin + n_pml*dz) & (z <= zmax - n_pml*dz))[0]
 else:
-    zmask = np.logical_and(z >= zlo, z <= zhi)
-xmask = np.logical_and(x >= xlo - dh, x <= xhi + dh)
-ymask = np.logical_and(y >= ylo - dh, y <= yhi + dh)
+    zmask = np.where((z >= zlo) & (z <= zhi))[0]
+xmask = np.where((x >= xlo - dx) & (x <= xhi + dx))[0]
+ymask = np.where((y >= ylo - dy) & (y <= yhi + dy))[0]
 
 #Injection position [TO OPTIMIZE]
 z_inj=zmin+5*dz
@@ -350,10 +348,10 @@ for n_step in range(max_steps):
     rho_t.append(rho[ixsource,iysource,:])
 
     # Save the 3D Ez matrix into a hdf5 dataset
-    #hf_Ez.create_dataset('Ez_'+prefix[n_step]+str(n_step), data=Ez[:,:,zmask])
+    hf_Ez.create_dataset('Ez_'+prefix[n_step]+str(n_step), data=Ez[:,:,:])
 
     # Saves the Ez field in a prism along the z axis 3 cells wide into a hdf5 dataset
-    hf_Ez.create_dataset('Ez_'+prefix[n_step]+str(n_step), data=Ez[xmask, ymask, zmask] )
+    #hf_Ez.create_dataset('Ez_'+prefix[n_step]+str(n_step), data=Ez[xmask][:,ymask][:,:,zmask])
 
 # Finish simulation --------------------------------------------
 
@@ -370,10 +368,10 @@ rho_t=np.transpose(np.array(rho_t)) #(z,t)
 t=np.array(t)
 
 # Get linear charge distribution
-charge_dist=rho_t*dx*dy                     #[C/m]
-timestep=np.argmax(charge_dist[nz//2, :])   #max at cavity center
-qz=np.sum(charge_dist[:,timestep])*dz       #charge along the z axis
-charge_dist = charge_dist*q/qz   #total charge in the z axis
+rho=rho_t*dx*dy                             #rho(z,t) [C/m]
+tmax=np.argmax(rho[len(rho[:,0])//2, :])    #t where rho is max at cavity center
+qz=np.sum(rho[:,tmax])*dz                   #charge along the z axis
+chargedist = rho[:,tmax]*q/qz               #total charge in the z axis lambda(z) [C/m]
 
 if flag_logfile:
     # Close logfile
@@ -384,31 +382,26 @@ if flag_logfile:
 #=================#
 
 # Create dictionary with input data. SI UNITs: [m], [s], [C]
-data = { 'init_time' : -t_offs, 
-         't' : t,
+data = { 't' : t,
          'x' : x[xmask],   
          'y' : y[ymask],
          'z' : z[zmask],
-         'nt' : max_steps,
-         'nx' : nx,
-         'ny' : ny,
-         'nz' : nz,
-         'L' : L,    
          'sigmaz' : sigmaz,
          'xsource' : xsource,
          'ysource' : ysource,
          'xtest' : xtest,
          'ytest' : ytest,
          'q' : q, 
-         'charge_dist' : charge_dist,
-         'unit' : UNIT,
+         'chargedist' : {'X' : z[zmask], 'Y' : chargedist},
+         'rho' : rho,
+         'unit_m' : UNIT,
          'x0' : x,
          'y0' : y,
          'z0' : z
         }
 
 # write the input dictionary to a txt using pickle module
-with open(path+'warpx.inp', 'wb') as fp:
+with open(path+'warpx.pk', 'wb') as fp:
     pk.dump(data, fp)
 
 print('[WARPX][! OUT] out file succesfully generated') 

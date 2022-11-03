@@ -405,7 +405,7 @@ data = { 'init_time' : -t_offs,
         }
 
 # write the input dictionary to a txt using pickle module
-with open(path+'warpx.inp', 'wb') as fp:
+with open(path+'warpx.pk', 'wb') as fp:
     pk.dump(data, fp)
 
 print('[WARPX][! OUT] out file succesfully generated') 
