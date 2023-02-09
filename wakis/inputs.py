@@ -23,11 +23,6 @@ import h5py
 from wakis.logger import get_logger
 from wakis.reader import Reader
 
-#globals
-_cwd = os.getcwd() + '/'
-_verbose = 2    #1: Debug, 2: Info, 3: Warning, 4: Error, 5: Critical
-_log = get_logger(level=_verbose)
-
 
 class Inputs(Reader):
     '''Mixin class to encapsulate all child input classes
@@ -63,7 +58,7 @@ class Inputs(Reader):
         '''
 
         def __init__(self, case = None, unit_m = 1e-3, 
-                     unit_t = 1e-9, unit_f = 1e9, path = _cwd):
+                     unit_t = 1e-9, unit_f = 1e9, path = os.getcwd() + '/', verbose = 2):    
             
             case_list = ['warpx', 'cst']
             assert case is None or case in case_list, \
@@ -96,25 +91,58 @@ class Inputs(Reader):
 
             self.unit_m = unit_m  #default: mm
             self.unit_t = unit_t  #default: ns
-            self.unit_f = unit_f   #default: GHz
+            self.unit_f = unit_f  #default: GHz
             self.case = case
             self.path = path
-            self.verbose = _verbose
-            self.log = _log
+            self.verbose = _verbose #1: Debug, 2: Info, 3: Warning, 4: Error, 5: Critical):
+            self.log = get_logger(level=_verbose)
 
     class Beam():
+        ''' Class to store beam input data
+
+        Parameters
+        ----------
+        q : float
+            Total beam charge in [C]
+        sigma_z : float
+            Beam sigma in the longitudinal plane, in [m]
+        x_source : float
+            Beam center x axis [m]
+        y_source : float
+            Beam center y axis [m]
+        x_test : float
+            Integration path for wake potential x axis [m]
+        y_test : float
+            Integration path for wake potential y axis [m]
+        chargedist: str or float
+            Filename containing the beam charge distribution or ndarray 
+        path : :obj: `str`, optional
+            Absolute path to working directory 
+            Default is cwd
+        '''
 
         def __init__(self, q = None, sigmaz = None, 
                      xsource = None, ysource = None, 
                      xtest = None, ytest = None, 
-                     chargedist = None):
+                     chargedist = None, solver=None, filename='warpx.dat'):
 
             self.q = None
             self.sigmaz = None
             self.xsource, self.ysource = None, None
             self.xtest, self.ytest = None, None
             self.chargedist = None
+            self.verbose = 2 #1: Debug, 2: Info, 3: Warning, 4: Error, 5: Critical):
+            self.log = get_logger(level=self.verbose)
+            self.filename = filename
+            if solver == 'warpx':
+                self.initialuze_warpx()
 
+            if solver == 'cst':
+                self.initialize_cst()
+
+        def initialize_warpx(self):
+
+                                         
         @classmethod
         def from_WarpX(cls, filename = 'warpx.json'):
 
@@ -139,19 +167,19 @@ class Inputs(Reader):
                      chargedist = d['charge_dist'], rho = d['rho'])
 
             else:
-                _log.warning('warpx file extension not supported')
+                get_logger(2).warning('warpx file extension not supported')
 
         @classmethod
         def from_CST(cls, q = None, sigmaz = None, 
                      xsource = None, ysource = None, 
                      xtest = None, ytest = None, 
-                     chargedist = 'lambda.txt', rho = None, path=_cwd):
+                     chargedist = 'lambda.txt', rho = None, path=os.getcwd() + '/'):
 
             if type(chargedist) is str:
                 try:
                     chargedist = Reader.read_cst_1d(chargedist, path = path)
                 except:
-                    _log.warning(f'Charge distribution file "{chargedist}" not found')
+                    get_logger(2).warning(f'Charge distribution file "{chargedist}" not found')
 
             return cls(q = q, sigmaz = sigmaz, 
                      xsource = ysource, ysource = ysource, 
@@ -160,7 +188,7 @@ class Inputs(Reader):
 
 
         @staticmethod
-        def _read_cst_1d(file, path=_cwd):
+        def _read_cst_1d(file, path=os.getcwd() + '/'):
             '''
             Read CST plot data saved in ASCII .txt format
 
@@ -194,7 +222,7 @@ class Inputs(Reader):
     class Field():
 
         def __init__(self, Ez = None, t= None, x = None, y = None, z = None, 
-                     x0 = None, y0 = None, z0 = None):
+                     x0 = None, y0 = None, z0 = None, filename=None):
 
             self.Ez = Ez
             self.t = t
@@ -227,8 +255,8 @@ class Inputs(Reader):
                 HDF5 file containing the Ez(x,y,z) matrix for every timestep
             '''
 
-            path = _cwd
-            path_3d = _cwd + folder + '/'
+            path = os.getcwd() + '/'
+            path_3d = os.getcwd() + '/' + folder + '/'
 
             #read CST field monitor output and turn it into .h5 file
             Reader.read_cst_3d(path, path_3d, filename)
@@ -240,11 +268,11 @@ class Inputs(Reader):
             return cls(Ez = {'hf' : hf, 'dataset' : dataset}, t=t, x=x, y=y, z=z)
 
         @classmethod
-        def from_WarpX(cls, path = _cwd, warpx_filename = 'warpx.json', Ez_filename = 'Ez.h5'):
+        def from_WarpX(cls, path = os.getcwd() + '/', warpx_filename = 'warpx.json', Ez_filename = 'Ez.h5'):
             
             hf, dataset = Reader.read_Ez(path, Ez_filename)
             ext = warpx_filename.split('.')[-1]
-
+            supported_extensions = {'pk', 'pickle', 'dat', 'out', 'inp'}
             if ext == 'json':
                 with open(warpx_filename, 'r') as f:
                     d = {k: np.array(v) for k, v in js.loads(f.read()).items()}
@@ -253,7 +281,7 @@ class Inputs(Reader):
                             x=d['x'], y=d['y'], z=d['z'], 
                             x0=d['x0'], y0=d['y0'], z0=['z0'])
 
-            elif ext == 'pk' or ext == 'pickle':
+            elif ext in supported_extensions:
                 with open(warpx_filename, 'rb') as f:
                     d = pk.load(f)
 
@@ -262,18 +290,18 @@ class Inputs(Reader):
                             x0=d['x0'], y0=d['y0'], z0=['z0'])
 
             else:
-                _log.warning('warpx file extension not supported')
+                self.log.warning('warpx file extension not supported')
 
 
         @staticmethod
-        def _read_Ez(path = _cwd, filename = 'Ez.h5'):
+        def _read_Ez(path = os.getcwd() + '/', filename = 'Ez.h5'):
             '''
             Read the Ez.h5 file containing the Ez field information
             '''
 
             hf = h5py.File(path+filename, 'r')
-            _log.info('Reading the h5 file: ' + path + filename + ' ...')
-            _log.debug('Size of the file: ' + str(round((os.path.getsize(path+filename)/10**9),2))+' Gb')
+            self.log.info('Reading the h5 file: ' + path + filename + ' ...')
+            self.log.debug('Size of the file: ' + str(round((os.path.getsize(path+filename)/10**9),2))+' Gb')
 
             # get number of datasets
             size_hf=0.0
@@ -287,7 +315,7 @@ class Inputs(Reader):
             return hf, dataset
 
         @staticmethod
-        def _read_cst_3d(path = _cwd, path_3d = '3d', filename = 'Ez.h5'):
+        def _read_cst_3d(path = os.getcwd() + '/', path_3d = '3d', filename = 'Ez.h5'):
                     # Rename files with E-02, E-03
             for file in glob.glob(path_3d +'*E-02.txt'): 
                 file=file.split(path_3d)
@@ -353,7 +381,7 @@ class Inputs(Reader):
 
             # Start scan
             for file in fnames:
-                _log.debug('Scanning file '+ file + '...')
+                self.log.debug('Scanning file '+ file + '...')
                 title=file.split(path)
                 title2=title[1].split('_')
                 num=title2[1].split('.txt')
@@ -391,5 +419,5 @@ class Inputs(Reader):
             hf.close()
 
             #set field info
-            _log.debug('Ez field is stored in a matrix with shape '+str(Ez.shape)+' in '+str(int(nsteps))+' datasets')
-            _log.info('Finished scanning files - hdf5 file'+filename+'succesfully generated')
+            self.log.debug('Ez field is stored in a matrix with shape '+str(Ez.shape)+' in '+str(int(nsteps))+' datasets')
+            self.log.info('Finished scanning files - hdf5 file'+filename+'succesfully generated')
